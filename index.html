@@ -69,7 +69,7 @@
                     <div class="text-center mb-3">
                         <p class="text-sm font-medium text-gray-700 mb-2">สแกน QR เพื่อชำระเงิน</p>
                         <img id="cart-qr-image" src="" alt="QR Code" class="w-32 h-32 object-cover mx-auto border rounded-md hidden-view">
-                        <p id="cart-no-qr" class="text-xs text-red-500">ร้านค้ายัวไม่ได้อัปโหลด QR Code</p>
+                        <p id="cart-no-qr" class="text-xs text-red-500">ร้านค้ายังไม่ได้อัปโหลด QR Code</p>
                     </div>
                     <div class="mt-3">
                         <label class="block text-xs font-medium text-gray-700 mb-1">แนบสลิปโอนเงิน:</label>
@@ -190,14 +190,15 @@
         try {
             // ** สำคัญ: ถ้านำไปใช้งานจริงแบบเรียลไทม์ ต้องเอา Config จากเว็บ Firebase ของคุณมาใส่ตรงนี้นะครับ **
             const firebaseConfig = {
-                // apiKey: "YOUR_API_KEY",
-                // authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-                // databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
-                // projectId: "YOUR_PROJECT_ID",
-                // storageBucket: "YOUR_PROJECT_ID.appspot.com",
-                // messagingSenderId: "YOUR_SENDER_ID",
-                // appId: "YOUR_APP_ID"
-            };
+  apiKey: "AIzaSyCoFj3bDeODUDrZl7gTbaAR0MjaieMMqF8",
+  authDomain: "order-system-115cb.firebaseapp.com",
+  databaseURL: "https://order-system-115cb-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "order-system-115cb",
+  storageBucket: "order-system-115cb.firebasestorage.app",
+  messagingSenderId: "1003354788092",
+  appId: "1:1003354788092:web:8d1e75b13862cb0a228779",
+  measurementId: "G-5XBQ0WSKJD"
+};
 
             if (firebaseConfig.apiKey) {
                 firebase.initializeApp(firebaseConfig);
