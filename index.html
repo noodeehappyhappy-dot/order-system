@@ -3,909 +3,687 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>สั่งเสียก่อนสั่งซื้อ - ข้าวหน้าปลาดิบ & คุกกี้</title>
+    <title>สั่งเสียก่อนสั่งซื้อ</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Firebase SDK (v8) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
     <style>
-        body {
-            font-family: 'Prompt', sans-serif;
-            background-color: #eff6ff; /* blue-50 */
-        }
-        /* Custom scrollbar for a cleaner look */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f5f9; 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #93c5fd; 
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #60a5fa; 
-        }
-        .toast-enter {
-            transform: translateY(100%);
-            opacity: 0;
-        }
-        .toast-enter-active {
-            transform: translateY(0);
-            opacity: 1;
-            transition: all 0.3s ease-out;
-        }
-        .toast-exit {
-            transform: translateY(0);
-            opacity: 1;
-        }
-        .toast-exit-active {
-            transform: translateY(100%);
-            opacity: 0;
-            transition: all 0.3s ease-in;
-        }
+        body { font-family: 'Prompt', sans-serif; background-color: #eff6ff; }
+        .hidden-view { display: none !important; }
+        /* Toast Animation */
+        #toast { transition: opacity 0.3s, transform 0.3s; }
     </style>
 </head>
-<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+<body class="text-gray-800">
 
-    <!-- Navigation Bar -->
-    <nav class="bg-blue-600 text-white shadow-lg sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center space-x-3">
-                    <span class="text-2xl">🌊</span>
-                    <span class="font-bold text-xl tracking-wide">สั่งเสียก่อนสั่งซื้อ</span>
-                </div>
-                <div class="flex items-center space-x-1 sm:space-x-4">
-                    <button onclick="switchTab('customer')" id="tab-customer" class="px-3 py-2 rounded-md text-sm font-medium transition-colors bg-blue-700 hover:bg-blue-500">
-                        หน้าร้าน (ลูกค้า)
-                    </button>
-                    <button onclick="switchTab('seller')" id="tab-seller" class="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-blue-500">
-                        จัดการออเดอร์ (ร้านค้า)
-                    </button>
-                </div>
+    <!-- Navbar -->
+    <nav class="bg-blue-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="text-xl font-bold flex items-center gap-2">
+                <span>🌊 สั่งเสียก่อนสั่งซื้อ</span>
+            </div>
+            <div class="flex gap-2 text-sm">
+                <button onclick="switchView('customer')" id="btn-nav-customer" class="px-3 py-1.5 bg-blue-700 rounded-md font-medium">หน้าร้าน (ลูกค้า)</button>
+                <button onclick="switchView('admin-login')" id="btn-nav-admin" class="px-3 py-1.5 hover:bg-blue-700 rounded-md">จัดการออเดอร์ (ร้านค้า)</button>
             </div>
         </div>
     </nav>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded shadow-lg opacity-0 pointer-events-none z-50">
+        ข้อความแจ้งเตือน
+    </div>
+
+    <!-- ================= CUSTOMER VIEW ================= -->
+    <div id="customer-view" class="max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-6">
         
-        <!-- Loading State -->
-        <div id="loading-state" class="flex flex-col items-center justify-center py-20 text-blue-500">
-            <svg class="animate-spin h-10 w-10 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="font-medium animate-pulse">กำลังเชื่อมต่อระบบ...</p>
-        </div>
-
-        <!-- ================= CUSTOMER VIEW ================= -->
-        <div id="view-customer" class="hidden space-y-8">
-            
-            <div class="text-center space-y-2">
-                <h1 class="text-3xl font-bold text-blue-800">ยินดีต้อนรับสู่ สั่งเสียก่อนสั่งซื้อ</h1>
-                <p class="text-blue-600">สัมผัสความสดใหม่ของทะเล และความหอมหวานของคุกกี้โฮมเมด</p>
+        <!-- Left: Menu -->
+        <div class="flex-1">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-blue-800 mb-2">ยินดีต้อนรับสู่ สั่งเสียก่อนสั่งซื้อ</h1>
+                <p class="text-blue-600">เมนูอาหารคุณภาพในราคาสบายกระเป๋า</p>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                <!-- Menu Section -->
-                <div class="lg:col-span-2 space-y-6">
-                    <h2 class="text-2xl font-semibold text-blue-900 border-b-2 border-blue-200 pb-2">เมนูของเรา</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6" id="menu-container">
-                        <!-- Menu items injected via JS -->
-                    </div>
-                </div>
-
-                <!-- Cart & Order Status Section -->
-                <div class="space-y-6">
-                    <!-- Cart -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-                        <h2 class="text-xl font-semibold text-blue-900 mb-4 flex items-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                            ตะกร้าของคุณ
-                        </h2>
-                        <div id="cart-items" class="space-y-3 mb-4 max-h-48 overflow-y-auto">
-                            <p class="text-gray-400 text-sm italic text-center py-4">ยังไม่มีสินค้าในตะกร้า</p>
-                        </div>
-
-                        <!-- QR Code Container (Customer) -->
-                        <div id="payment-qr-container" class="hidden mb-4 p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
-                            <p class="text-sm text-blue-800 font-medium mb-2">สแกน QR Code เพื่อชำระเงิน</p>
-                            <img id="customer-qr-image" src="" alt="Payment QR Code" class="mx-auto max-w-[160px] rounded-lg shadow-sm border border-white">
-                        </div>
-
-                        <!-- Slip Upload Container (Customer) -->
-                        <div id="slip-upload-container" class="hidden mb-4 p-4 bg-white rounded-xl border border-gray-200 text-center space-y-2">
-                            <label class="block text-sm text-gray-600 font-medium">แนบสลิปโอนเงิน (ถ้ามี)</label>
-                            <input type="file" id="customer-slip-upload" accept="image/*" onchange="previewSlip(event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors cursor-pointer">
-                            <img id="customer-slip-preview" src="" alt="Slip Preview" class="hidden mx-auto max-w-[120px] rounded-lg shadow-sm border border-gray-100 mt-2">
-                        </div>
-
-                        <div class="border-t border-blue-50 pt-4 flex justify-between items-center font-bold text-lg mb-4">
-                            <span>รวมทั้งสิ้น</span>
-                            <span id="cart-total" class="text-blue-600">฿0</span>
-                        </div>
-                        <button id="btn-checkout" onclick="placeOrder()" disabled class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md hover:shadow-lg">
-                            ยืนยันการสั่งซื้อ
-                        </button>
-                    </div>
-
-                    <!-- Live Order Status (Customer) -->
-                    <div class="bg-blue-50 rounded-2xl border border-blue-200 p-6">
-                        <h2 class="text-xl font-semibold text-blue-900 mb-4 flex items-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            สถานะออเดอร์ของฉัน
-                        </h2>
-                        <div id="my-orders-list" class="space-y-4 max-h-[400px] overflow-y-auto">
-                            <!-- User's orders injected here -->
-                            <p class="text-blue-400 text-sm text-center py-4">คุณยังไม่มีออเดอร์ในขณะนี้</p>
-                        </div>
-                    </div>
-                </div>
+            <h2 class="text-xl font-semibold border-b-2 border-blue-200 pb-2 mb-4">เมนูของเรา</h2>
+            <div id="menu-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Menu Items will be rendered here by JS -->
             </div>
         </div>
 
-        <!-- ================= LOGIN VIEW (SELLER) ================= -->
-        <div id="view-login" class="hidden max-w-md mx-auto mt-12 space-y-6 bg-white p-8 rounded-3xl shadow-sm border border-blue-100">
-            <div class="text-center space-y-2">
-                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                </div>
-                <h2 class="text-2xl font-bold text-blue-900">เข้าสู่ระบบร้านค้า</h2>
-                <p class="text-blue-500 text-sm">กรุณาใส่รหัสผ่านเพื่อจัดการออเดอร์</p>
-            </div>
-            <div class="space-y-4 pt-4">
-                <div>
-                    <input type="password" id="seller-password" placeholder="รหัสผ่าน" class="w-full px-4 py-3 rounded-xl border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-center text-lg" onkeypress="if(event.key === 'Enter') attemptLogin()">
-                </div>
-                <button onclick="attemptLogin()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-md hover:shadow-lg">
-                    เข้าสู่ระบบ
-                </button>
-                <button onclick="switchTab('customer')" class="w-full py-2 text-blue-500 hover:text-blue-700 text-sm font-medium transition-colors">
-                    กลับไปหน้าร้าน
-                </button>
-            </div>
-        </div>
-
-        <!-- ================= SELLER VIEW ================= -->
-        <div id="view-seller" class="hidden space-y-6">
-            <div class="flex justify-between items-center border-b-2 border-blue-200 pb-4">
-                <h1 class="text-3xl font-bold text-blue-800">ระบบจัดการออเดอร์ร้านค้า</h1>
-                <div class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium" id="total-orders-count">
-                    ออเดอร์วันนี้: 0
-                </div>
-            </div>
-
-            <!-- QR Code Setting Section -->
-            <div class="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-                <h2 class="text-lg font-bold text-blue-900 mb-4 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    ตั้งค่า QR Code รับเงิน
+        <!-- Right: Cart & Status -->
+        <div class="w-full md:w-80 flex flex-col gap-6">
+            <!-- Cart -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-blue-100">
+                <h2 class="font-semibold text-lg flex items-center gap-2 mb-4">
+                    🛒 ตะกร้าของคุณ
                 </h2>
-                <div class="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-                    <div class="w-32 h-32 bg-blue-50 border-2 border-dashed border-blue-200 rounded-xl flex items-center justify-center overflow-hidden relative">
-                        <img id="seller-qr-preview" src="" alt="QR Preview" class="hidden w-full h-full object-contain p-1">
-                        <span id="seller-qr-placeholder" class="text-blue-400 text-xs text-center px-2">ยังไม่มีรูป QR</span>
+                <div id="cart-items" class="flex flex-col gap-3 mb-4 text-sm">
+                    <div class="text-gray-400 text-center py-4">ยังไม่มีสินค้าในตะกร้า</div>
+                </div>
+                
+                <!-- QR Code & Slip (Shows only if cart has items) -->
+                <div id="payment-section" class="hidden-view border-t border-gray-100 pt-4 mb-4">
+                    <div class="text-center mb-3">
+                        <p class="text-sm font-medium text-gray-700 mb-2">สแกน QR เพื่อชำระเงิน</p>
+                        <img id="cart-qr-image" src="" alt="QR Code" class="w-32 h-32 object-cover mx-auto border rounded-md hidden-view">
+                        <p id="cart-no-qr" class="text-xs text-red-500">ร้านค้ายัวไม่ได้อัปโหลด QR Code</p>
                     </div>
-                    <div class="space-y-3 flex-1 w-full">
-                        <label class="block text-sm text-gray-600 mb-1">อัปโหลดรูปภาพ QR Code (ขนาดไม่เกิน 500KB)</label>
-                        <input type="file" id="qr-upload" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors cursor-pointer">
-                        <button onclick="saveQRCode()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
-                            บันทึก QR Code
-                        </button>
+                    <div class="mt-3">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">แนบสลิปโอนเงิน:</label>
+                        <input type="file" id="slip-upload" accept="image/*" class="w-full text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     </div>
                 </div>
-            </div>
 
-            <div class="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-blue-50 text-blue-800 border-b border-blue-100 text-sm uppercase tracking-wider">
-                                <th class="p-4 font-semibold">หมายเลขคิว</th>
-                                <th class="p-4 font-semibold">เวลา</th>
-                                <th class="p-4 font-semibold">รายการอาหาร</th>
-                                <th class="p-4 font-semibold">ยอดรวม</th>
-                                <th class="p-4 font-semibold text-center">สถานะอาหาร</th>
-                                <th class="p-4 font-semibold text-center">การชำระเงิน</th>
-                                <th class="p-4 font-semibold text-right">อัปเดตสถานะ</th>
-                            </tr>
-                        </thead>
-                        <tbody id="seller-orders-tbody" class="divide-y divide-blue-50 text-sm">
-                            <!-- Seller orders injected here -->
-                            <tr>
-                                <td colspan="6" class="p-8 text-center text-gray-400 italic">กำลังโหลดข้อมูล...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="flex justify-between items-center font-bold text-lg border-t border-gray-100 pt-4 mb-4">
+                    <span>รวมทั้งสิ้น</span>
+                    <span id="cart-total" class="text-blue-600">฿0</span>
                 </div>
-            </div>
-        </div>
-
-    </main>
-
-    <!-- Sauce Selection Modal -->
-    <div id="sauce-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
-            <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-lg">เลือกซอสที่ต้องการ</h3>
-                <button onclick="closeSauceModal()" class="text-white hover:text-blue-200">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <button onclick="submitOrder()" id="btn-submit-order" class="w-full py-2.5 bg-gray-300 text-gray-500 font-medium rounded-lg cursor-not-allowed transition-colors" disabled>
+                    ยืนยันการสั่งซื้อ
                 </button>
             </div>
-            <div class="p-5 space-y-3">
-                <p class="text-sm text-gray-600 mb-2">กรุณาเลือกซอสสำหรับข้าวหน้าปลาดิบรวม:</p>
-                <button onclick="confirmSauce('โชยุเลมอน')" class="w-full text-left px-4 py-3 rounded-xl border border-blue-100 hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-blue-900 flex justify-between items-center group">
-                    โชยุเลมอน
-                    <span class="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">เลือก &rarr;</span>
-                </button>
-                <button onclick="confirmSauce('Spicy มาโย')" class="w-full text-left px-4 py-3 rounded-xl border border-blue-100 hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-blue-900 flex justify-between items-center group">
-                    Spicy มาโย
-                    <span class="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">เลือก &rarr;</span>
-                </button>
-                <button onclick="confirmSauce('ซีฟู้ด')" class="w-full text-left px-4 py-3 rounded-xl border border-blue-100 hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-blue-900 flex justify-between items-center group">
-                    ซีฟู้ด
-                    <span class="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">เลือก &rarr;</span>
-                </button>
+
+            <!-- Customer Order Status -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-blue-100">
+                <h2 class="font-semibold text-lg flex items-center gap-2 mb-4">
+                    🕒 สถานะออเดอร์ของฉัน
+                </h2>
+                <div id="customer-orders" class="text-sm">
+                    <div class="text-gray-400 text-center py-4">คุณยังไม่มีออเดอร์ในขณะนี้</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Slip Viewer Modal -->
-    <div id="slip-modal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all flex flex-col">
-            <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-lg">สลิปโอนเงิน</h3>
-                <button onclick="closeSlipModal()" class="text-white hover:text-blue-200">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
+    <!-- ================= ADMIN LOGIN VIEW ================= -->
+    <div id="admin-login-view" class="hidden-view max-w-md mx-auto mt-20 px-4">
+        <div class="bg-white p-8 rounded-xl shadow-sm border border-blue-100 text-center">
+            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="text-2xl">🔒</span>
             </div>
-            <div class="p-4 bg-gray-50 flex justify-center items-center overflow-auto" style="max-height: 70vh;">
-                <img id="slip-full-image" src="" alt="Full Slip" class="max-w-full h-auto rounded-lg shadow-sm border border-gray-200">
+            <h2 class="text-2xl font-bold text-blue-800 mb-2">เข้าสู่ระบบร้านค้า</h2>
+            <p class="text-sm text-gray-500 mb-6">กรุณาใส่รหัสผ่านเพื่อจัดการออเดอร์</p>
+            
+            <input type="password" id="admin-password" class="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center" placeholder="รหัสผ่าน">
+            
+            <button onclick="loginAdmin()" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium mb-2">เข้าสู่ระบบ</button>
+            <button onclick="switchView('customer')" class="text-sm text-blue-500 hover:underline">กลับไปหน้าร้าน</button>
+        </div>
+    </div>
+
+    <!-- ================= ADMIN VIEW ================= -->
+    <div id="admin-view" class="hidden-view max-w-6xl mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-blue-800">ระบบจัดการออเดอร์ร้านค้า</h1>
+            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium" id="total-orders-badge">ออเดอร์ทั้งหมด: 0</span>
+        </div>
+
+        <!-- Admin Settings (QR Code) -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-blue-100 mb-6">
+            <h2 class="font-semibold text-gray-700 mb-4 flex items-center gap-2">⚙️ ตั้งค่า QR Code รับเงิน</h2>
+            <div class="flex items-center gap-4">
+                <div class="w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-300 rounded flex items-center justify-center overflow-hidden">
+                    <img id="admin-qr-preview" src="" alt="QR" class="w-full h-full object-cover hidden-view">
+                    <span id="admin-qr-placeholder" class="text-xs text-gray-400">ยังไม่มีรูป QR</span>
+                </div>
+                <div>
+                    <input type="file" id="qr-upload-input" accept="image/*" class="text-sm mb-2 block file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <button onclick="saveQRCode()" class="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">บันทึก QR Code</button>
+                </div>
             </div>
-            <div class="p-4 bg-white border-t flex justify-end">
-                <button onclick="closeSlipModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors">ปิด</button>
+        </div>
+
+        <!-- Order List -->
+        <div class="bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-blue-50 text-blue-800 border-b">
+                        <tr>
+                            <th class="p-4 font-semibold">หมายเลขคิว</th>
+                            <th class="p-4 font-semibold">เวลา</th>
+                            <th class="p-4 font-semibold w-1/3">รายการอาหาร</th>
+                            <th class="p-4 font-semibold">ยอดรวม</th>
+                            <th class="p-4 font-semibold text-center">การชำระเงิน</th>
+                            <th class="p-4 font-semibold text-center">สถานะอาหาร</th>
+                            <th class="p-4 font-semibold text-center">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-order-list" class="divide-y divide-gray-100">
+                        <tr>
+                            <td colspan="7" class="p-8 text-center text-gray-400">ยังไม่มีออเดอร์</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notification Container -->
-    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+    <!-- Modal for viewing Slip -->
+    <div id="slip-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden-view flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-2 max-w-sm w-full relative">
+            <button onclick="closeSlipModal()" class="absolute top-2 right-2 bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center hover:bg-gray-300">✕</button>
+            <img id="slip-modal-img" src="" class="w-full h-auto rounded">
+        </div>
+    </div>
 
-    <!-- Firebase & Application Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, updateDoc, doc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Environment Variables
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ocean-blue-cafe-default';
-        const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-        
-        let app, db, auth;
-        let currentUser = null;
-        let unsubscribeOrders = null;
-        let isSellerAuthenticated = false;
-        
-        // App State
-        const state = {
-            cart: [],
-            allOrders: [],
-            myOrders: [],
-            paymentQR: null,
-            currentSlip: null
-        };
-
-        // Menu Data
+    <!-- JavaScript -->
+    <script>
+        // ================= CONFIG & DATA =================
+        // เมนูอาหารตามที่กำหนด
         const menuItems = [
-            {
-                id: 'm1',
-                name: 'ข้าวหน้าปลาดิบรวม',
-                price: 39,
-                desc: 'แซลมอน ทูน่า ฮามาจิ หอยเชลล์ เสิร์ฟบนข้าวซูชิปรุงรส',
-                image: '🍣',
-                bgColor: 'bg-blue-100',
-                textColor: 'text-blue-600',
-                requiresSauce: true
-            },
-            {
-                id: 'm2',
-                name: 'คุกกี้',
-                price: 20,
-                desc: 'คุกกี้โฮมเมดหอมเนยแท้ หวานน้อย กรอบนอกนุ่มใน',
-                image: '🍪',
-                bgColor: 'bg-amber-100',
-                textColor: 'text-amber-700',
-                requiresSauce: false
-            }
+            { id: 'm1', name: 'ข้าวหน้าปลาดิบรวม', price: 39, image: '🍱', hasSauce: true },
+            { id: 'm2', name: 'คุกกี้', price: 20, image: '🍪', hasSauce: false }
         ];
+        
+        // ซอส 3 ประเภท
+        const sauceOptions = ['โชยุเลมอน', 'Spicy มาโย', 'ซีฟู้ด'];
 
-        const STATUS_MAP = {
-            'pending': { label: 'รอดำเนินการ', class: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-            'cooking': { label: 'กำลังเตรียม', class: 'bg-blue-100 text-blue-800 border-blue-200' },
-            'completed': { label: 'เสร็จเรียบร้อย', class: 'bg-green-100 text-green-800 border-green-200' }
-        };
+        // State ของแอป
+        let cart = [];
+        let savedQRBase64 = "";
+        let db = null; // เก็บ instance ของ Firebase Database
 
-        // Initialize Firebase
-        async function initFirebase() {
-            try {
-                if (firebaseConfigStr === '{}') {
-                    showToast("ไม่พบการตั้งค่า Firebase (Preview Mode)", "error");
-                    document.getElementById('loading-state').classList.add('hidden');
-                    return;
-                }
-
-                const config = JSON.parse(firebaseConfigStr);
-                app = initializeApp(config);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // Authentication
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                currentUser = auth.currentUser;
-
-                // Start App
-                document.getElementById('loading-state').classList.add('hidden');
-                document.getElementById('view-customer').classList.remove('hidden');
-                
-                renderMenu();
-                startOrderListener();
-
-            } catch (error) {
-                console.error("Firebase initialization error:", error);
-                showToast("เกิดข้อผิดพลาดในการเชื่อมต่อระบบ", "error");
-                document.getElementById('loading-state').innerHTML = `<p class="text-red-500">การเชื่อมต่อล้มเหลว: ${error.message}</p>`;
-            }
-        }
-
-        // --- Data Layer ---
-
-        function startOrderListener() {
-            if (!currentUser) return;
-
-            // Listen to Config (QR Code Settings)
-            const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'shopConfig');
-            onSnapshot(configRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    if (data.paymentQR) {
-                        state.paymentQR = data.paymentQR;
-                        
-                        // Update Seller Preview
-                        document.getElementById('seller-qr-preview').src = data.paymentQR;
-                        document.getElementById('seller-qr-preview').classList.remove('hidden');
-                        document.getElementById('seller-qr-placeholder').classList.add('hidden');
-                        
-                        // Update Customer Cart (show only if cart is not empty)
-                        document.getElementById('customer-qr-image').src = data.paymentQR;
-                        if (state.cart.length > 0) {
-                            document.getElementById('payment-qr-container').classList.remove('hidden');
-                        }
-                    } else {
-                        hideQRDisplay();
-                    }
-                } else {
-                    hideQRDisplay();
-                }
-            }, (error) => {
-                console.error("Error listening to config:", error);
-            });
-
-            // Rule 1: Strict Paths
-            const ordersRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
-            
-            // Rule 2 & 3: No complex queries, filter in memory.
-            unsubscribeOrders = onSnapshot(ordersRef, (snapshot) => {
-                const fetchedOrders = [];
-                snapshot.forEach(doc => {
-                    fetchedOrders.push({ id: doc.id, ...doc.data() });
-                });
-
-                // Sort by creation time (descending) in memory
-                fetchedOrders.sort((a, b) => {
-                    const timeA = a.createdAt ? a.createdAt.toMillis() : 0;
-                    const timeB = b.createdAt ? b.createdAt.toMillis() : 0;
-                    return timeB - timeA;
-                });
-
-                state.allOrders = fetchedOrders;
-                // Filter for current user in memory
-                state.myOrders = fetchedOrders.filter(o => o.userId === currentUser.uid);
-
-                updateUI();
-            }, (error) => {
-                console.error("Error listening to orders:", error);
-                showToast("ไม่สามารถซิงค์ข้อมูลได้", "error");
-            });
-        }
-
-        window.placeOrder = async function() {
-            if (!currentUser || state.cart.length === 0) return;
-
-            const btn = document.getElementById('btn-checkout');
-            btn.disabled = true;
-            btn.innerHTML = `<svg class="animate-spin h-5 w-5 mx-auto text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-
-            const orderData = {
-                userId: currentUser.uid,
-                orderNumber: 'Q' + Math.floor(1000 + Math.random() * 9000), // simple random queue num
-                items: state.cart,
-                totalPrice: state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-                status: 'pending',
-                paymentStatus: 'pending',
-                paymentSlip: state.currentSlip,
-                createdAt: serverTimestamp()
+        // ================= FIREBASE SETUP (ใส่ Try-Catch กัน Error หน้าขาว) =================
+        try {
+            // ** สำคัญ: ถ้านำไปใช้งานจริงแบบเรียลไทม์ ต้องเอา Config จากเว็บ Firebase ของคุณมาใส่ตรงนี้นะครับ **
+            const firebaseConfig = {
+                // apiKey: "YOUR_API_KEY",
+                // authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+                // databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+                // projectId: "YOUR_PROJECT_ID",
+                // storageBucket: "YOUR_PROJECT_ID.appspot.com",
+                // messagingSenderId: "YOUR_SENDER_ID",
+                // appId: "YOUR_APP_ID"
             };
 
-            try {
-                const ordersRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
-                await addDoc(ordersRef, orderData);
-                
-                showToast("สั่งอาหารสำเร็จ! หมายเลขคิวของคุณคือ " + orderData.orderNumber, "success");
-                state.cart = []; // clear cart
-                state.currentSlip = null; // clear slip
-                
-                // Clear file input and preview
-                const slipInput = document.getElementById('customer-slip-upload');
-                if (slipInput) slipInput.value = '';
-                document.getElementById('customer-slip-preview').classList.add('hidden');
-                document.getElementById('customer-slip-preview').src = '';
-
-                renderCart();
-            } catch (error) {
-                console.error("Error placing order:", error);
-                showToast("เกิดข้อผิดพลาดในการสั่งอาหาร", "error");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "ยืนยันการสั่งซื้อ";
-            }
-        };
-
-        function hideQRDisplay() {
-            state.paymentQR = null;
-            document.getElementById('seller-qr-preview').classList.add('hidden');
-            document.getElementById('seller-qr-placeholder').classList.remove('hidden');
-            document.getElementById('payment-qr-container').classList.add('hidden');
-        }
-
-        window.saveQRCode = async function() {
-            if (!isSellerAuthenticated) return;
-            const fileInput = document.getElementById('qr-upload');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                showToast("กรุณาเลือกไฟล์รูปภาพ QR Code ก่อน", "error");
-                return;
-            }
-            
-            // Limit size to ~500KB to prevent exceeding Firestore max doc size
-            if (file.size > 500 * 1024) {
-                showToast("ขนาดไฟล์ใหญ่เกินไป (สูงสุด 500KB)", "error");
-                return;
-            }
-
-            const btn = event.currentTarget;
-            const originalText = btn.innerText;
-            btn.innerText = "กำลังบันทึก...";
-            btn.disabled = true;
-
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const base64Str = e.target.result;
-                try {
-                    const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'shopConfig');
-                    await setDoc(configRef, { paymentQR: base64Str }, { merge: true });
-                    showToast("บันทึกรูป QR Code สำเร็จ", "success");
-                    fileInput.value = ''; // clear input after saving
-                } catch(error) {
-                    console.error("Error saving QR:", error);
-                    showToast("ไม่สามารถบันทึก QR Code ได้", "error");
-                } finally {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                }
-            };
-            reader.onerror = () => {
-                showToast("เกิดข้อผิดพลาดในการอ่านไฟล์", "error");
-                btn.innerText = originalText;
-                btn.disabled = false;
-            };
-            reader.readAsDataURL(file);
-        };
-
-        window.updateOrderStatus = async function(orderId, newStatus) {
-            if (!currentUser) return;
-            try {
-                const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
-                await updateDoc(orderRef, { status: newStatus });
-                showToast("อัปเดตสถานะสำเร็จ", "success");
-            } catch (error) {
-                console.error("Error updating status:", error);
-                showToast("ไม่สามารถอัปเดตสถานะได้", "error");
-            }
-        };
-
-        window.confirmPayment = async function(orderId) {
-            if (!currentUser || !isSellerAuthenticated) return;
-            try {
-                const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
-                await updateDoc(orderRef, { paymentStatus: 'confirmed' });
-                showToast("ยืนยันยอดเงินสำเร็จ", "success");
-            } catch (error) {
-                console.error("Error confirming payment:", error);
-                showToast("ไม่สามารถยืนยันยอดเงินได้", "error");
-            }
-        };
-
-        window.previewSlip = function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            // Limit size to ~500KB
-            if (file.size > 500 * 1024) {
-                showToast("ขนาดไฟล์สลิปใหญ่เกินไป (สูงสุด 500KB)", "error");
-                event.target.value = '';
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                state.currentSlip = e.target.result;
-                const preview = document.getElementById('customer-slip-preview');
-                preview.src = state.currentSlip;
-                preview.classList.remove('hidden');
-            };
-            reader.readAsDataURL(file);
-        };
-
-        window.viewSlip = function(orderId) {
-            const order = state.allOrders.find(o => o.id === orderId);
-            if (order && order.paymentSlip) {
-                document.getElementById('slip-full-image').src = order.paymentSlip;
-                document.getElementById('slip-modal').classList.remove('hidden');
-            }
-        };
-
-        window.closeSlipModal = function() {
-            document.getElementById('slip-modal').classList.add('hidden');
-            document.getElementById('slip-full-image').src = '';
-        };
-
-        // --- UI Layer ---
-
-        function updateUI() {
-            renderMyOrders();
-            renderSellerOrders();
-        }
-
-        window.switchTab = function(tab) {
-            const vCust = document.getElementById('view-customer');
-            const vSell = document.getElementById('view-seller');
-            const vLogin = document.getElementById('view-login');
-            const btnCust = document.getElementById('tab-customer');
-            const btnSell = document.getElementById('tab-seller');
-
-            if (tab === 'customer') {
-                vCust.classList.remove('hidden');
-                vSell.classList.add('hidden');
-                vLogin.classList.add('hidden');
-                btnCust.classList.add('bg-blue-700');
-                btnSell.classList.remove('bg-blue-700');
-            } else if (tab === 'seller') {
-                vCust.classList.add('hidden');
-                btnCust.classList.remove('bg-blue-700');
-                btnSell.classList.add('bg-blue-700');
-                
-                if (isSellerAuthenticated) {
-                    vSell.classList.remove('hidden');
-                    vLogin.classList.add('hidden');
-                } else {
-                    vSell.classList.add('hidden');
-                    vLogin.classList.remove('hidden');
-                    setTimeout(() => document.getElementById('seller-password').focus(), 100);
-                }
-            }
-        };
-
-        window.attemptLogin = function() {
-            const pwdInput = document.getElementById('seller-password');
-            if (pwdInput.value === '001') {
-                isSellerAuthenticated = true;
-                pwdInput.value = '';
-                showToast('เข้าสู่ระบบสำเร็จ', 'success');
-                switchTab('seller');
+            if (firebaseConfig.apiKey) {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
             } else {
-                showToast('รหัสผ่านไม่ถูกต้อง', 'error');
-                pwdInput.value = '';
-                pwdInput.focus();
+                console.warn("ยังไม่ได้ใส่ Firebase Config ระบบจะทำงานแบบ Offline ชั่วคราว (รีเฟรชแล้วข้อมูลหาย)");
             }
-        };
-
-        function renderMenu() {
-            const container = document.getElementById('menu-container');
-            container.innerHTML = menuItems.map(item => `
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-blue-50 hover:shadow-md transition-shadow flex flex-col h-full relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -z-10 transition-transform group-hover:scale-150"></div>
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="w-14 h-14 ${item.bgColor} rounded-xl flex items-center justify-center text-3xl shadow-inner">
-                            ${item.image}
-                        </div>
-                        <span class="font-bold text-lg text-blue-600 bg-blue-50 px-3 py-1 rounded-full">฿${item.price}</span>
-                    </div>
-                    <h3 class="font-bold text-lg text-gray-800 mb-1">${item.name}</h3>
-                    <p class="text-sm text-gray-500 mb-4 flex-grow line-clamp-2">${item.desc}</p>
-                    <button onclick="addToCart('${item.id}', this)" class="w-full py-2.5 mt-auto bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white rounded-xl font-medium transition-colors border border-blue-100 hover:border-blue-600 focus:ring-2 focus:ring-blue-300">
-                        + เพิ่มลงตะกร้า
-                    </button>
-                </div>
-            `).join('');
+        } catch (error) {
+            console.error("Firebase Error:", error);
         }
 
-        let pendingItemIdForSauce = null;
-        let pendingButtonRef = null;
-
-        window.addToCart = function(itemId, btnElement) {
-            const item = menuItems.find(m => m.id === itemId);
-            if (!item) return;
-
-            // ตรวจสอบว่าเมนูนี้ต้องเลือกซอสหรือไม่
-            if (item.requiresSauce) {
-                pendingItemIdForSauce = itemId;
-                pendingButtonRef = btnElement || event.currentTarget;
-                document.getElementById('sauce-modal').classList.remove('hidden');
-                return;
-            }
-            
-            processAddToCart(item, null);
-            animateButton(btnElement || event.currentTarget);
-        };
-
-        window.confirmSauce = function(sauceName) {
-            const item = menuItems.find(m => m.id === pendingItemIdForSauce);
-            if (item) {
-                processAddToCart(item, sauceName);
-                if (pendingButtonRef) animateButton(pendingButtonRef);
-                showToast(`เพิ่ม ${item.name} (${sauceName}) แล้ว`, 'success');
-            }
-            closeSauceModal();
-        };
-
-        window.closeSauceModal = function() {
-            document.getElementById('sauce-modal').classList.add('hidden');
-            pendingItemIdForSauce = null;
-            pendingButtonRef = null;
-        };
-
-        function processAddToCart(item, sauce) {
-            // สร้าง ID เฉพาะสำหรับตะกร้า เพื่อแยกสินค้าชนิดเดียวกันแต่เลือกซอสต่างกัน
-            const cartItemId = sauce ? `${item.id}-${sauce}` : item.id;
-            
-            const existing = state.cart.find(i => i.cartItemId === cartItemId);
-            if (existing) {
-                existing.quantity += 1;
-            } else {
-                state.cart.push({ ...item, quantity: 1, sauce: sauce, cartItemId: cartItemId });
-            }
-            renderCart();
-        }
-
-        function animateButton(btn) {
-            if (!btn) return;
-            const originalText = btn.innerHTML;
-            btn.innerHTML = "✓ เพิ่มแล้ว";
-            btn.classList.add('bg-green-500', 'text-white', 'border-green-500', 'hover:bg-green-500');
+        // ================= UI FUNCTIONS =================
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
             setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.classList.remove('bg-green-500', 'text-white', 'border-green-500', 'hover:bg-green-500');
-            }, 800);
-        }
-
-        window.removeFromCart = function(cartItemId) {
-            state.cart = state.cart.filter(i => i.cartItemId !== cartItemId);
-            renderCart();
-        };
-
-        function renderCart() {
-            const container = document.getElementById('cart-items');
-            const totalEl = document.getElementById('cart-total');
-            const checkoutBtn = document.getElementById('btn-checkout');
-            const qrContainer = document.getElementById('payment-qr-container');
-            const slipContainer = document.getElementById('slip-upload-container');
-
-            if (state.cart.length === 0) {
-                container.innerHTML = `<p class="text-gray-400 text-sm italic text-center py-4">ยังไม่มีสินค้าในตะกร้า</p>`;
-                totalEl.innerText = '฿0';
-                checkoutBtn.disabled = true;
-                if (qrContainer) qrContainer.classList.add('hidden');
-                if (slipContainer) slipContainer.classList.add('hidden');
-                return;
-            }
-
-            // Show QR and Slip upload if available and cart has items
-            if (state.paymentQR && qrContainer) {
-                qrContainer.classList.remove('hidden');
-                if (slipContainer) slipContainer.classList.remove('hidden');
-            }
-
-            let total = 0;
-            container.innerHTML = state.cart.map(item => {
-                total += item.price * item.quantity;
-                return `
-                <div class="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-                    <div class="flex items-center space-x-2">
-                        <button onclick="removeFromCart('${item.cartItemId}')" class="text-red-400 hover:text-red-600 p-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        </button>
-                        <div>
-                            <p class="text-sm font-medium text-gray-800">
-                                ${item.name}
-                                ${item.sauce ? `<span class="block text-[11px] font-normal text-blue-600 mt-0.5">ซอส: ${item.sauce}</span>` : ''}
-                            </p>
-                            <p class="text-xs text-gray-500 mt-0.5">฿${item.price} x ${item.quantity}</p>
-                        </div>
-                    </div>
-                    <span class="font-semibold text-sm text-gray-800">฿${item.price * item.quantity}</span>
-                </div>
-                `;
-            }).join('');
-
-            totalEl.innerText = `฿${total}`;
-            checkoutBtn.disabled = false;
-        }
-
-        function renderMyOrders() {
-            const container = document.getElementById('my-orders-list');
-            if (state.myOrders.length === 0) {
-                container.innerHTML = `<p class="text-blue-400 text-sm text-center py-4">คุณยังไม่มีออเดอร์ในขณะนี้</p>`;
-                return;
-            }
-
-            container.innerHTML = state.myOrders.map(order => {
-                const status = STATUS_MAP[order.status] || STATUS_MAP['pending'];
-                const timeStr = order.createdAt ? new Date(order.createdAt.toMillis()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : 'กำลังประมวลผล...';
-                
-                return `
-                <div class="bg-white p-4 rounded-xl border border-blue-100 shadow-sm relative overflow-hidden">
-                    ${order.status === 'cooking' ? '<div class="absolute top-0 left-0 w-1 h-full bg-blue-400 animate-pulse"></div>' : ''}
-                    ${order.status === 'completed' ? '<div class="absolute top-0 left-0 w-1 h-full bg-green-400"></div>' : ''}
-                    
-                    <div class="flex justify-between items-start mb-2 pl-2">
-                        <div>
-                            <span class="text-xs text-gray-500 block mb-1">เวลา: ${timeStr}</span>
-                            <span class="font-bold text-lg text-blue-900">คิว ${order.orderNumber}</span>
-                        </div>
-                        <span class="px-2.5 py-1 text-xs font-semibold rounded-full border ${status.class}">
-                            ${status.label}
-                        </span>
-                    </div>
-                    
-                    <div class="mt-3 pt-3 border-t border-gray-50 pl-2">
-                        <ul class="text-sm text-gray-600 space-y-1">
-                            ${order.items.map(item => `
-                                <li>
-                                    • ${item.name} 
-                                    ${item.sauce ? `<span class="text-blue-500 text-xs ml-1">(ซอส: ${item.sauce})</span>` : ''} 
-                                    <span class="text-gray-400">(x${item.quantity})</span>
-                                </li>
-                            `).join('')}
-                        </ul>
-                        <div class="mt-3 flex justify-between items-center font-semibold text-sm">
-                            <span class="${order.paymentStatus === 'confirmed' ? 'text-green-600' : 'text-yellow-600'} flex items-center">
-                                ${order.paymentStatus === 'confirmed' ? '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> ชำระเงินแล้ว' : '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> รอตรวจสอบยอด'}
-                            </span>
-                            <span class="text-blue-800">ยอดรวม: ฿${order.totalPrice}</span>
-                        </div>
-                    </div>
-                </div>
-                `;
-            }).join('');
-        }
-
-        function renderSellerOrders() {
-            const tbody = document.getElementById('seller-orders-tbody');
-            document.getElementById('total-orders-count').innerText = `ออเดอร์ทั้งหมด: ${state.allOrders.length}`;
-
-            if (state.allOrders.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-400 italic">ยังไม่มีออเดอร์ในระบบ</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = state.allOrders.map(order => {
-                const status = STATUS_MAP[order.status] || STATUS_MAP['pending'];
-                const timeStr = order.createdAt ? new Date(order.createdAt.toMillis()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-';
-                
-                let actionButtons = '';
-                if (order.status === 'pending') {
-                    actionButtons = `<button onclick="updateOrderStatus('${order.id}', 'cooking')" class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm w-full">เริ่มทำอาหาร</button>`;
-                } else if (order.status === 'cooking') {
-                    actionButtons = `<button onclick="updateOrderStatus('${order.id}', 'completed')" class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm w-full">ทำเสร็จแล้ว</button>`;
-                } else {
-                    actionButtons = `<span class="text-xs text-gray-400 block text-center">ดำเนินการแล้ว</span>`;
-                }
-
-                // Payment Status UI
-                const isPaid = order.paymentStatus === 'confirmed';
-                let paymentUI = `<div class="flex flex-col items-center space-y-2">`;
-                
-                if (isPaid) {
-                    paymentUI += `<span class="px-2 py-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-700 border border-green-200">รับยอดแล้ว</span>`;
-                } else {
-                    paymentUI += `<span class="px-2 py-1 text-[10px] font-semibold rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200">รอตรวจสอบ</span>`;
-                    // ย้ายปุ่มออกนอกเงื่อนไข เพื่อให้แสดงเสมอแม้ไม่มีสลิป
-                    paymentUI += `<button onclick="confirmPayment('${order.id}')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded transition-colors shadow-sm whitespace-nowrap">ยืนยันยอดเงิน</button>`;
-                }
-                
-                if (order.paymentSlip) {
-                     paymentUI += `<button onclick="viewSlip('${order.id}')" class="text-blue-600 hover:text-blue-800 text-xs underline flex items-center"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> ดูสลิป</button>`;
-                } else {
-                     paymentUI += `<span class="text-[10px] text-gray-400">ไม่มีสลิปแนบ</span>`;
-                }
-                paymentUI += `</div>`;
-
-                return `
-                <tr class="hover:bg-blue-50/50 transition-colors ${order.status === 'completed' ? 'opacity-60' : ''}">
-                    <td class="p-4 whitespace-nowrap">
-                        <span class="font-bold text-blue-900">${order.orderNumber}</span>
-                    </td>
-                    <td class="p-4 whitespace-nowrap text-gray-500 text-sm">${timeStr}</td>
-                    <td class="p-4">
-                        <div class="text-sm text-gray-700 max-w-xs">
-                            ${order.items.map(i => `${i.name} ${i.sauce ? `<span class="text-blue-500">(ซอส: ${i.sauce})</span>` : ''} (x${i.quantity})`).join('<br>')}
-                        </div>
-                    </td>
-                    <td class="p-4 whitespace-nowrap font-medium text-blue-700">฿${order.totalPrice}</td>
-                    <td class="p-4 whitespace-nowrap text-center">
-                        <span class="px-2.5 py-1 text-xs font-semibold rounded-full border ${status.class}">
-                            ${status.label}
-                        </span>
-                    </td>
-                    <td class="p-4 whitespace-nowrap align-middle">
-                        ${paymentUI}
-                    </td>
-                    <td class="p-4 whitespace-nowrap text-right align-middle">
-                        ${actionButtons}
-                    </td>
-                </tr>
-                `;
-            }).join('');
-        }
-
-        // Custom Toast Notification System (Replacing alert)
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            
-            let bgClass = 'bg-gray-800';
-            let icon = '';
-            
-            if (type === 'success') {
-                bgClass = 'bg-green-600';
-                icon = '<svg class="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
-            } else if (type === 'error') {
-                bgClass = 'bg-red-500';
-                icon = '<svg class="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-            }
-
-            toast.className = `${bgClass} text-white px-4 py-3 rounded-xl shadow-lg flex items-center text-sm font-medium toast-enter-active`;
-            toast.innerHTML = `${icon} <span>${message}</span>`;
-            
-            container.appendChild(toast);
-
-            setTimeout(() => {
-                toast.classList.remove('toast-enter-active');
-                toast.classList.add('toast-exit-active');
-                setTimeout(() => toast.remove(), 300);
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0', 'pointer-events-none');
             }, 3000);
         }
 
-        // Initialize App on load
-        window.addEventListener('DOMContentLoaded', initFirebase);
+        function switchView(viewName) {
+            document.getElementById('customer-view').classList.add('hidden-view');
+            document.getElementById('admin-login-view').classList.add('hidden-view');
+            document.getElementById('admin-view').classList.add('hidden-view');
+            
+            document.getElementById('btn-nav-customer').classList.replace('bg-blue-700', 'hover:bg-blue-700');
+            document.getElementById('btn-nav-admin').classList.replace('bg-blue-700', 'hover:bg-blue-700');
+
+            if (viewName === 'customer') {
+                document.getElementById('customer-view').classList.remove('hidden-view');
+                document.getElementById('btn-nav-customer').classList.replace('hover:bg-blue-700', 'bg-blue-700');
+            } else if (viewName === 'admin-login') {
+                document.getElementById('admin-login-view').classList.remove('hidden-view');
+                document.getElementById('btn-nav-admin').classList.replace('hover:bg-blue-700', 'bg-blue-700');
+                document.getElementById('admin-password').value = '';
+            } else if (viewName === 'admin') {
+                document.getElementById('admin-view').classList.remove('hidden-view');
+                document.getElementById('btn-nav-admin').classList.replace('hover:bg-blue-700', 'bg-blue-700');
+                loadAdminData(); // โหลดข้อมูลเมื่อเข้าหน้าแอดมิน
+            }
+        }
+
+        function loginAdmin() {
+            const pwd = document.getElementById('admin-password').value;
+            if (pwd === '001') {
+                switchView('admin');
+                showToast('เข้าสู่ระบบสำเร็จ');
+            } else {
+                showToast('รหัสผ่านไม่ถูกต้อง');
+            }
+        }
+
+        // ================= RENDER CUSTOMER MENU =================
+        // วาดเมนูอาหารทันทีที่โหลดสคริปต์
+        function renderMenu() {
+            const container = document.getElementById('menu-container');
+            container.innerHTML = '';
+
+            menuItems.forEach(item => {
+                let sauceHTML = '';
+                if (item.hasSauce) {
+                    let options = sauceOptions.map(s => `<option value="${s}">${s}</option>`).join('');
+                    sauceHTML = `
+                        <select id="sauce-${item.id}" class="mt-2 w-full text-xs border rounded p-1 text-gray-600 focus:outline-none">
+                            <option value="" disabled selected>เลือกซอส</option>
+                            ${options}
+                        </select>
+                    `;
+                }
+
+                const card = `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-blue-50 flex gap-4 items-center hover:shadow-md transition-shadow">
+                        <div class="text-4xl bg-blue-50 w-16 h-16 rounded-lg flex items-center justify-center">${item.image}</div>
+                        <div class="flex-1">
+                            <h3 class="font-medium">${item.name}</h3>
+                            <p class="text-blue-600 font-semibold text-sm">฿${item.price}</p>
+                            ${sauceHTML}
+                        </div>
+                        <button onclick="addToCart('${item.id}')" class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center hover:bg-blue-200 transition-colors font-bold text-xl">
+                            +
+                        </button>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        // ================= CART LOGIC =================
+        function addToCart(itemId) {
+            const item = menuItems.find(m => m.id === itemId);
+            let selectedSauce = null;
+
+            if (item.hasSauce) {
+                const sauceSelect = document.getElementById(`sauce-${itemId}`);
+                if (!sauceSelect.value) {
+                    showToast('กรุณาเลือกซอสก่อนสั่งครับ');
+                    return;
+                }
+                selectedSauce = sauceSelect.value;
+            }
+
+            // เช็คว่ามีรายการที่เหมือนกันในตะกร้าไหม (ชื่อ + ซอสต้องตรงกัน)
+            const existingItem = cart.find(c => c.id === itemId && c.sauce === selectedSauce);
+            
+            if (existingItem) {
+                existingItem.qty += 1;
+            } else {
+                cart.push({ ...item, qty: 1, sauce: selectedSauce });
+            }
+
+            renderCart();
+            showToast('เพิ่มลงตะกร้าแล้ว');
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            const paymentSection = document.getElementById('payment-section');
+            const totalEl = document.getElementById('cart-total');
+            const btnSubmit = document.getElementById('btn-submit-order');
+            
+            container.innerHTML = '';
+            let total = 0;
+
+            if (cart.length === 0) {
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">ยังไม่มีสินค้าในตะกร้า</div>';
+                paymentSection.classList.add('hidden-view');
+                btnSubmit.disabled = true;
+                btnSubmit.classList.replace('bg-blue-600', 'bg-gray-300');
+                btnSubmit.classList.replace('text-white', 'text-gray-500');
+                btnSubmit.classList.remove('hover:bg-blue-700');
+            } else {
+                cart.forEach((c, index) => {
+                    const itemTotal = c.price * c.qty;
+                    total += itemTotal;
+                    const sauceText = c.sauce ? `<span class="text-xs text-blue-500 block">(ซอส: ${c.sauce})</span>` : '';
+                    
+                    container.innerHTML += `
+                        <div class="flex justify-between items-start border-b border-gray-50 pb-2">
+                            <div class="flex-1 pr-2">
+                                <p class="font-medium">${c.name} <span class="text-gray-500 text-xs">x${c.qty}</span></p>
+                                ${sauceText}
+                            </div>
+                            <div class="text-right flex flex-col items-end">
+                                <span class="font-semibold text-blue-600 mb-1">฿${itemTotal}</span>
+                                <button onclick="removeFromCart(${index})" class="text-xs text-red-400 hover:text-red-600">ลบ</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                paymentSection.classList.remove('hidden-view');
+                btnSubmit.disabled = false;
+                btnSubmit.classList.replace('bg-gray-300', 'bg-blue-600');
+                btnSubmit.classList.replace('text-gray-500', 'text-white');
+                btnSubmit.classList.add('hover:bg-blue-700');
+            }
+            totalEl.innerText = `฿${total}`;
+        }
+
+        // แปลงไฟล์เป็น Base64
+        function fileToBase64(file, callback) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => callback(reader.result);
+            reader.onerror = error => console.error('Error: ', error);
+        }
+
+        function submitOrder() {
+            if (cart.length === 0) return;
+            
+            const slipInput = document.getElementById('slip-upload');
+            let slipBase64 = null;
+            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            
+            const orderData = {
+                id: 'Q' + Math.floor(1000 + Math.random() * 9000), // สร้างเลขคิวสุ่ม
+                timestamp: new Date().getTime(),
+                timeString: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                items: cart,
+                total: total,
+                status: 'กำลังเตรียม', // สถานะอาหาร
+                paymentStatus: 'รอตรวจสอบ', // สถานะการเงิน
+                slipImage: null
+            };
+
+            const processOrder = () => {
+                if (db) {
+                    // แบบใช้ Firebase
+                    db.ref('orders/' + orderData.id).set(orderData)
+                        .then(() => { finishOrderSubmit(orderData); })
+                        .catch(err => { console.error(err); showToast('เกิดข้อผิดพลาดในการส่งออเดอร์'); });
+                } else {
+                    // แบบ Offline (บันทึกลงตัวแปรชั่วคราว)
+                    offlineOrders.unshift(orderData);
+                    finishOrderSubmit(orderData);
+                }
+            };
+
+            if (slipInput.files.length > 0) {
+                const file = slipInput.files[0];
+                if (file.size > 1024 * 1024) { // กันไฟล์ใหญ่เกิน 1MB
+                    showToast('ไฟล์สลิปใหญ่เกินไป (จำกัด 1MB)');
+                    return;
+                }
+                fileToBase64(file, (base64) => {
+                    orderData.slipImage = base64;
+                    processOrder();
+                });
+            } else {
+                processOrder();
+            }
+        }
+
+        function finishOrderSubmit(orderData) {
+            cart = [];
+            renderCart();
+            document.getElementById('slip-upload').value = '';
+            
+            // บันทึกคิวลง LocalStorage เพื่อให้ลูกค้าดูของตัวเองได้
+            let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
+            myOrders.push(orderData.id);
+            localStorage.setItem('myOrders', JSON.stringify(myOrders));
+            
+            showToast(`สั่งอาหารสำเร็จ คิวของคุณคือ ${orderData.id}`);
+            renderCustomerOrders();
+        }
+
+        // ================= QR & ADMIN DATA SYNC =================
+        let offlineOrders = []; // จำลอง Database ตอนยังไม่ต่อ Firebase
+
+        function saveQRCode() {
+            const input = document.getElementById('qr-upload-input');
+            if (input.files.length === 0) return;
+
+            const file = input.files[0];
+            if (file.size > 500 * 1024) {
+                showToast('ไฟล์ภาพใหญ่เกินไป (จำกัด 500KB)');
+                return;
+            }
+
+            fileToBase64(file, (base64) => {
+                if (db) {
+                    db.ref('settings/qrCode').set(base64)
+                        .then(() => showToast('บันทึก QR Code สำเร็จ'))
+                        .catch(e => console.error(e));
+                } else {
+                    savedQRBase64 = base64;
+                    updateQRDisplay(base64);
+                    showToast('บันทึก QR Code สำเร็จ (Offline Mode)');
+                }
+            });
+        }
+
+        function updateQRDisplay(base64Data) {
+            savedQRBase64 = base64Data;
+            const adminImg = document.getElementById('admin-qr-preview');
+            const adminPlaceholder = document.getElementById('admin-qr-placeholder');
+            const cartImg = document.getElementById('cart-qr-image');
+            const cartNoQR = document.getElementById('cart-no-qr');
+
+            if (base64Data) {
+                adminImg.src = base64Data;
+                adminImg.classList.remove('hidden-view');
+                adminPlaceholder.classList.add('hidden-view');
+                
+                cartImg.src = base64Data;
+                cartImg.classList.remove('hidden-view');
+                cartNoQR.classList.add('hidden-view');
+            } else {
+                adminImg.classList.add('hidden-view');
+                adminPlaceholder.classList.remove('hidden-view');
+                cartImg.classList.add('hidden-view');
+                cartNoQR.classList.remove('hidden-view');
+            }
+        }
+
+        // ดึงข้อมูลฝั่ง Admin
+        function loadAdminData() {
+            if (db) {
+                // โหลดรูป QR
+                db.ref('settings/qrCode').on('value', snap => {
+                    updateQRDisplay(snap.val());
+                });
+
+                // โหลดออเดอร์
+                db.ref('orders').orderByChild('timestamp').on('value', snap => {
+                    const data = snap.val();
+                    const orders = [];
+                    if (data) {
+                        Object.keys(data).forEach(key => orders.push(data[key]));
+                        orders.reverse(); // ล่าสุดขึ้นก่อน
+                    }
+                    renderAdminOrders(orders);
+                });
+            } else {
+                // Offline fallback
+                updateQRDisplay(savedQRBase64);
+                renderAdminOrders(offlineOrders);
+            }
+        }
+
+        function renderAdminOrders(orders) {
+            const tbody = document.getElementById('admin-order-list');
+            document.getElementById('total-orders-badge').innerText = `ออเดอร์ทั้งหมด: ${orders.length}`;
+            tbody.innerHTML = '';
+
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400">ยังไม่มีออเดอร์</td></tr>';
+                return;
+            }
+
+            orders.forEach(order => {
+                let itemsList = order.items.map(i => {
+                    let s = i.sauce ? `<span class="text-blue-500">(ซอส: ${i.sauce})</span>` : '';
+                    return `<div>${i.name} ${s} <span class="text-xs text-gray-500">x${i.qty}</span></div>`;
+                }).join('');
+
+                // สีของสถานะการเงิน
+                let paymentBadge = '';
+                if (order.paymentStatus === 'รอตรวจสอบ') {
+                    // ปุ่มยืนยันยอดเงินสีเขียว แสดงเสมอถ้ายังไม่จ่าย
+                    paymentBadge = `
+                        <span class="inline-block px-2 py-1 bg-yellow-100 text-yellow-800 rounded-md text-xs mb-1">รอตรวจสอบ</span><br>
+                        <button onclick="updatePayment('${order.id}', 'ชำระแล้ว')" class="text-xs px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600">ยืนยันยอดเงิน</button>
+                    `;
+                } else {
+                    paymentBadge = `<span class="inline-block px-2 py-1 bg-green-100 text-green-800 rounded-md text-xs">รับยอดแล้ว</span>`;
+                }
+                
+                // ปุ่มดูสลิป (ถ้ามี)
+                if (order.slipImage) {
+                    paymentBadge += `<br><button onclick="viewSlip('${order.id}')" class="text-xs text-blue-500 underline mt-1">ดูสลิปที่แนบ</button>`;
+                } else if (order.paymentStatus === 'รอตรวจสอบ') {
+                    paymentBadge += `<div class="text-[10px] text-gray-400 mt-1">ไม่มีสลิปแนบ</div>`;
+                }
+
+                // ปุ่มสลับสถานะอาหาร
+                let statusBtn = '';
+                if (order.status === 'กำลังเตรียม') {
+                    statusBtn = `<button onclick="updateStatus('${order.id}', 'เสร็จแล้ว')" class="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">ทำเสร็จแล้ว</button>`;
+                } else {
+                    statusBtn = `<span class="text-green-600 text-xs font-bold">✓ เสิร์ฟแล้ว</span>`;
+                }
+
+                const tr = `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-4 font-bold text-gray-700">${order.id}</td>
+                        <td class="p-4 text-gray-500">${order.timeString}</td>
+                        <td class="p-4 leading-relaxed">${itemsList}</td>
+                        <td class="p-4 font-semibold text-blue-600">฿${order.total}</td>
+                        <td class="p-4 text-center">${paymentBadge}</td>
+                        <td class="p-4 text-center">
+                            <span class="px-2 py-1 ${order.status === 'กำลังเตรียม' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'} rounded-md text-xs">${order.status}</span>
+                        </td>
+                        <td class="p-4 text-center">${statusBtn}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += tr;
+            });
+            
+            // อัปเดตฝั่งลูกค้าด้วย (ถ้าเปิดเครื่องเดียวกัน)
+            renderCustomerOrders(orders);
+        }
+
+        // ================= ADMIN ACTIONS =================
+        function updateStatus(orderId, newStatus) {
+            if (db) {
+                db.ref('orders/' + orderId).update({ status: newStatus });
+            } else {
+                let o = offlineOrders.find(x => x.id === orderId);
+                if (o) o.status = newStatus;
+                renderAdminOrders(offlineOrders);
+            }
+        }
+
+        function updatePayment(orderId, newStatus) {
+            if (db) {
+                db.ref('orders/' + orderId).update({ paymentStatus: newStatus });
+            } else {
+                let o = offlineOrders.find(x => x.id === orderId);
+                if (o) o.paymentStatus = newStatus;
+                renderAdminOrders(offlineOrders);
+            }
+        }
+
+        // Modal สลิป
+        let currentOrdersData = []; // เก็บ Data ไว้แสดงรูป
+        function viewSlip(orderId) {
+            let order;
+            if (db) {
+                // ดึงจาก Firebase ตรงๆ รอบนึง
+                db.ref('orders/' + orderId).once('value').then(snap => {
+                    if (snap.val() && snap.val().slipImage) {
+                        document.getElementById('slip-modal-img').src = snap.val().slipImage;
+                        document.getElementById('slip-modal').classList.remove('hidden-view');
+                    }
+                });
+            } else {
+                order = offlineOrders.find(x => x.id === orderId);
+                if (order && order.slipImage) {
+                    document.getElementById('slip-modal-img').src = order.slipImage;
+                    document.getElementById('slip-modal').classList.remove('hidden-view');
+                }
+            }
+        }
+        function closeSlipModal() {
+            document.getElementById('slip-modal').classList.add('hidden-view');
+        }
+
+        // ================= CUSTOMER STATUS TRACKING =================
+        function renderCustomerOrders(allOrders = null) {
+            let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
+            const container = document.getElementById('customer-orders');
+            
+            if (myOrders.length === 0) {
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">คุณยังไม่มีออเดอร์ในขณะนี้</div>';
+                return;
+            }
+
+            // ถ้ามี Firebase ให้ดึงสด
+            if (db && !allOrders) {
+                db.ref('orders').once('value').then(snap => {
+                    const data = snap.val();
+                    const ordersList = [];
+                    if (data) {
+                        Object.keys(data).forEach(key => ordersList.push(data[key]));
+                    }
+                    buildCustomerOrderStatus(myOrders, ordersList, container);
+                });
+            } else {
+                buildCustomerOrderStatus(myOrders, allOrders || offlineOrders, container);
+            }
+        }
+
+        function buildCustomerOrderStatus(myOrderIds, allOrdersList, container) {
+            container.innerHTML = '';
+            let hasFound = false;
+
+            myOrderIds.reverse().forEach(id => {
+                const order = allOrdersList.find(o => o.id === id);
+                if (order) {
+                    hasFound = true;
+                    let pColor = order.paymentStatus === 'รับยอดแล้ว' || order.paymentStatus === 'ชำระแล้ว' ? 'text-green-600' : 'text-yellow-600';
+                    let sColor = order.status === 'เสร็จแล้ว' ? 'text-green-600' : 'text-blue-600';
+                    
+                    container.innerHTML += `
+                        <div class="border border-gray-100 rounded-lg p-3 mb-3 bg-gray-50">
+                            <div class="flex justify-between border-b border-gray-200 pb-2 mb-2">
+                                <span class="font-bold text-gray-700">คิว: ${order.id}</span>
+                                <span class="text-gray-500">${order.timeString}</span>
+                            </div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-gray-600">การชำระเงิน:</span>
+                                <span class="font-medium ${pColor}">${order.paymentStatus}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">สถานะอาหาร:</span>
+                                <span class="font-bold ${sColor}">${order.status}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (!hasFound) {
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">คุณยังไม่มีออเดอร์ในขณะนี้</div>';
+            }
+        }
+
+        // ================= INITIALIZE =================
+        // สั่งให้วาดเมนูทันทีเมื่อเปิดเว็บ
+        renderMenu();
+        
+        // จำลองการโหลดข้อมูลเบื้องต้น
+        if(!db) {
+            // ถ้าไม่มี Firebase ให้เปิดกลไกจำลองเพื่อให้เทส UI ได้
+            setInterval(() => { if(!db) loadAdminData(); }, 3000); 
+        }
 
     </script>
 </body>
