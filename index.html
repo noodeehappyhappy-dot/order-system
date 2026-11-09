@@ -180,11 +180,11 @@
         let cart = [];
         let savedQRBase64 = "";
         let db = null; 
+        let offlineOrders = [];
 
-        // ================= FIREBASE SETUP & DAILY RESET =================
+        // ================= FIREBASE SETUP & INITIALIZATION =================
         try {
-            // 👇 นำ Config ของคุณมาใส่ตรงนี้เหมือนเดิมนะครับ 👇
-                       const firebaseConfig = {
+                        const firebaseConfig = {
   apiKey: "AIzaSyCoFj3bDeODUDrZl7gTbaAR0MjaieMMqF8",
   authDomain: "order-system-115cb.firebaseapp.com",
   databaseURL: "https://order-system-115cb-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -195,45 +195,72 @@
   measurementId: "G-5XBQ0WSKJD"
 };
 
+
             if (firebaseConfig.apiKey) {
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.database();
-                checkDailyReset(); // ตรวจสอบการรีเซ็ตวันใหม่ทันทีเมื่อเปิดเว็บ
+                checkDailyReset(); 
+                initRealtimeListeners(); // เรียกการเชื่อมต่อข้อมูล Real-time
             } else {
                 console.warn("Offline Mode");
+                triggerOfflineUpdate();
             }
         } catch (error) {
             console.error("Firebase Error:", error);
         }
 
-        // ฟังก์ชันตรวจสอบและรีเซ็ตคิวรายวัน
+        // ฟังการเปลี่ยนแปลงข้อมูลแบบเรียลไทม์ (ใช้งานร่วมกันทั้งแอดมินและลูกค้า)
+        function initRealtimeListeners() {
+            if (!db) return;
+            
+            db.ref('settings/qrCode').on('value', snap => { 
+                updateQRDisplay(snap.val()); 
+            });
+
+            db.ref('orders').on('value', snap => {
+                const data = snap.val(); 
+                let orders = [];
+                if (data) { 
+                    Object.keys(data).forEach(key => orders.push(data[key])); 
+                    orders.sort((a, b) => b.timestamp - a.timestamp); // เรียงคิวใหม่ล่าสุดขึ้นก่อน
+                }
+                
+                // อัปเดตหน้าจอทั้งสองฝั่งทันที
+                renderAdminOrders(orders);
+                renderCustomerOrders(orders);
+            });
+        }
+
+        function triggerOfflineUpdate() {
+            renderAdminOrders(offlineOrders);
+            renderCustomerOrders(offlineOrders);
+        }
+
+        // ตรวจสอบและรีเซ็ตคิวรายวัน
         function checkDailyReset() {
             if (!db) return;
-            const todayDateString = new Date().toLocaleDateString('th-TH'); // ดึงวันที่ปัจจุบัน (เช่น 9/11/2569)
-            
+            const todayDateString = new Date().toLocaleDateString('th-TH'); 
             db.ref('settings/lastActiveDate').once('value').then(snap => {
                 const lastDate = snap.val();
                 if (lastDate !== todayDateString) {
-                    // หากวันที่ในระบบไม่ตรงกับวันนี้ (แสดงว่าขึ้นวันใหม่) -> ให้ล้างออเดอร์
                     db.ref('orders').remove();
                     db.ref('settings/orderCount').set(0);
                     db.ref('settings/lastActiveDate').set(todayDateString);
-                    console.log("รีเซ็ตระบบสำหรับวันใหม่เรียบร้อยแล้ว: " + todayDateString);
                 }
             });
         }
 
-        // ฟังก์ชันล้างออเดอร์ด้วยตัวเอง (ปุ่มกดหน้าแอดมิน)
+        // ล้างออเดอร์ด้วยตัวเอง (ปุ่มกดหน้าแอดมิน)
         function manualReset() {
             if (confirm("คุณต้องการลบออเดอร์ทั้งหมดและเริ่มคิวที่ 1 ใหม่ใช่หรือไม่? (การกระทำนี้ย้อนกลับไม่ได้)")) {
                 if (db) {
                     db.ref('orders').remove();
                     db.ref('settings/orderCount').set(0);
-                    showToast('รีเซ็ตออเดอร์กลับไปเป็นคิวที่ 1 เรียบร้อยแล้ว');
+                    showToast('รีเซ็ตออเดอร์เรียบร้อยแล้ว');
                 } else {
                     offlineOrders = [];
                     showToast('รีเซ็ตสำเร็จ (Offline)');
-                    renderAdminOrders(offlineOrders);
+                    triggerOfflineUpdate();
                 }
             }
         }
@@ -267,7 +294,6 @@
             } else if (viewName === 'admin') {
                 document.getElementById('admin-view').classList.remove('hidden-view');
                 document.getElementById('btn-nav-admin').classList.replace('hover:bg-blue-700', 'bg-blue-700');
-                loadAdminData(); 
             }
         }
 
@@ -359,8 +385,6 @@
             reader.onload = () => callback(reader.result);
         }
 
-        let offlineOrders = []; 
-
         function submitOrder() {
             if (cart.length === 0) return;
             
@@ -378,7 +402,7 @@
                 const orderData = {
                     id: queueNum.toString(), 
                     customerName: nameInput,
-                    timestamp: new Date().getTime(),
+                    timestamp: new Date().getTime(), // ใช้ Timestamp แยกความแตกต่าง
                     timeString: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
                     items: cart,
                     total: total,
@@ -429,15 +453,18 @@
             document.getElementById('slip-upload').value = '';
             document.getElementById('customer-name').value = ''; 
             
+            // บันทึก Timestamp ของออเดอร์ลงเครื่องลูกค้า
             let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
-            myOrders.push(orderData.id);
+            myOrders.push(orderData.timestamp);
             localStorage.setItem('myOrders', JSON.stringify(myOrders));
             
             showToast(`สั่งอาหารสำเร็จ คิวของคุณคือ ${orderData.id}`);
-            renderCustomerOrders();
+            
+            // ถ้า Offline ให้สั่งอัปเดตหน้าจอเอง (ถ้า Online ตัว Realtime Listener จะจัดการให้)
+            if (!db) { triggerOfflineUpdate(); }
         }
 
-        // ================= ADMIN DATA =================
+        // ================= ADMIN DATA & ACTIONS =================
         function saveQRCode() {
             const input = document.getElementById('qr-upload-input');
             if (input.files.length === 0) return;
@@ -461,19 +488,6 @@
             } else {
                 adminImg.classList.add('hidden-view'); adminPlaceholder.classList.remove('hidden-view');
                 cartImg.classList.add('hidden-view'); cartNoQR.classList.remove('hidden-view');
-            }
-        }
-
-        function loadAdminData() {
-            if (db) {
-                db.ref('settings/qrCode').on('value', snap => { updateQRDisplay(snap.val()); });
-                db.ref('orders').orderByChild('timestamp').on('value', snap => {
-                    const data = snap.val(); const orders = [];
-                    if (data) { Object.keys(data).forEach(key => orders.push(data[key])); orders.reverse(); }
-                    renderAdminOrders(orders);
-                });
-            } else {
-                updateQRDisplay(savedQRBase64); renderAdminOrders(offlineOrders);
             }
         }
 
@@ -512,11 +526,17 @@
                         <td class="p-4 text-center">${statusBtn}</td>
                     </tr>`;
             });
-            renderCustomerOrders(orders);
         }
 
-        function updateStatus(orderId, newStatus) { if (db) { db.ref('orders/' + orderId).update({ status: newStatus }); } }
-        function updatePayment(orderId, newStatus) { if (db) { db.ref('orders/' + orderId).update({ paymentStatus: newStatus }); } }
+        function updateStatus(orderId, newStatus) { 
+            if (db) { db.ref('orders/' + orderId).update({ status: newStatus }); } 
+            else { let o = offlineOrders.find(x => x.id === orderId); if(o) o.status = newStatus; triggerOfflineUpdate(); }
+        }
+        
+        function updatePayment(orderId, newStatus) { 
+            if (db) { db.ref('orders/' + orderId).update({ paymentStatus: newStatus }); } 
+            else { let o = offlineOrders.find(x => x.id === orderId); if(o) o.paymentStatus = newStatus; triggerOfflineUpdate(); }
+        }
         
         function viewSlip(orderId) {
             if (db) {
@@ -527,44 +547,48 @@
         }
         function closeSlipModal() { document.getElementById('slip-modal').classList.add('hidden-view'); }
 
-        // ================= CUSTOMER STATUS =================
-        function renderCustomerOrders(allOrders = null) {
-            let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
+        // ================= CUSTOMER STATUS & SYNC =================
+        function renderCustomerOrders(allOrdersList) {
+            let myLocalItems = JSON.parse(localStorage.getItem('myOrders') || '[]');
             const container = document.getElementById('customer-orders');
-            if (myOrders.length === 0) { container.innerHTML = '<div class="text-gray-400 text-center py-4">คุณยังไม่มีออเดอร์ในขณะนี้</div>'; return; }
-            if (db && !allOrders) {
-                db.ref('orders').once('value').then(snap => {
-                    const data = snap.val(); const ordersList = [];
-                    if (data) { Object.keys(data).forEach(key => ordersList.push(data[key])); }
-                    buildCustomerOrderStatus(myOrders, ordersList, container);
-                });
-            } else { buildCustomerOrderStatus(myOrders, allOrders || offlineOrders, container); }
-        }
+            
+            container.innerHTML = ''; 
+            let hasFound = false;
+            let validItems = [];
 
-        function buildCustomerOrderStatus(myOrderIds, allOrdersList, container) {
-            container.innerHTML = ''; let hasFound = false;
-            myOrderIds.reverse().forEach(id => {
-                const order = allOrdersList.find(o => o.id === id);
-                if (order) {
-                    hasFound = true;
-                    let pColor = order.paymentStatus === 'รับยอดแล้ว' || order.paymentStatus === 'ชำระแล้ว' ? 'text-green-600' : 'text-yellow-600';
-                    let sColor = order.status === 'เสร็จแล้ว' ? 'text-green-600' : 'text-blue-600';
-                    container.innerHTML += `
-                        <div class="border border-gray-100 rounded-lg p-3 mb-3 bg-gray-50">
-                            <div class="flex justify-between border-b border-gray-200 pb-2 mb-2">
-                                <span class="font-bold text-gray-700">คิว: ${order.id} <span class="text-blue-600 font-normal">(${order.customerName || 'ไม่ระบุ'})</span></span>
-                                <span class="text-gray-500">${order.timeString}</span>
-                            </div>
-                            <div class="flex justify-between items-center mb-1"><span class="text-gray-600">การชำระเงิน:</span><span class="font-medium ${pColor}">${order.paymentStatus}</span></div>
-                            <div class="flex justify-between items-center"><span class="text-gray-600">สถานะอาหาร:</span><span class="font-bold ${sColor}">${order.status}</span></div>
-                        </div>`;
-                }
-            });
-            if (!hasFound) { container.innerHTML = '<div class="text-gray-400 text-center py-4">คุณยังไม่มีออเดอร์ในขณะนี้</div>'; }
+            // ตรวจสอบว่าออเดอร์ในเครื่องลูกค้า ยังมีอยู่จริงในฐานข้อมูลหรือไม่
+            if (allOrdersList && allOrdersList.length > 0) {
+                allOrdersList.forEach(order => {
+                    // จับคู่ด้วย Timestamp ป้องกันคิวซ้ำเวลาเริ่มวันใหม่ หรือแอดมินกดรีเซ็ต
+                    if (myLocalItems.includes(order.timestamp) || myLocalItems.includes(order.id)) {
+                        hasFound = true;
+                        validItems.push(order.timestamp); 
+                        
+                        let pColor = order.paymentStatus === 'รับยอดแล้ว' || order.paymentStatus === 'ชำระแล้ว' ? 'text-green-600' : 'text-yellow-600';
+                        let sColor = order.status === 'เสร็จแล้ว' ? 'text-green-600' : 'text-blue-600';
+                        
+                        container.innerHTML += `
+                            <div class="border border-gray-100 rounded-lg p-3 mb-3 bg-gray-50 shadow-sm">
+                                <div class="flex justify-between border-b border-gray-200 pb-2 mb-2">
+                                    <span class="font-bold text-gray-700 text-lg">คิว: ${order.id} <span class="text-blue-600 font-normal text-sm">(${order.customerName || 'ไม่ระบุ'})</span></span>
+                                    <span class="text-gray-500 text-sm">${order.timeString}</span>
+                                </div>
+                                <div class="flex justify-between items-center mb-1 text-sm"><span class="text-gray-600">การชำระเงิน:</span><span class="font-medium ${pColor}">${order.paymentStatus}</span></div>
+                                <div class="flex justify-between items-center text-sm"><span class="text-gray-600">สถานะอาหาร:</span><span class="font-bold ${sColor}">${order.status}</span></div>
+                            </div>`;
+                    }
+                });
+            }
+            
+            // อัปเดตความจำเครื่องลูกค้าใหม่ (ทิ้งออเดอร์เก่าๆ ที่แอดมินลบไปแล้ว)
+            localStorage.setItem('myOrders', JSON.stringify(validItems));
+
+            if (!hasFound) { 
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">คุณยังไม่มีออเดอร์ในขณะนี้</div>'; 
+            }
         }
 
         renderMenu();
-        if(!db) { setInterval(() => { if(!db) loadAdminData(); }, 3000); }
     </script>
 </body>
 </html>
