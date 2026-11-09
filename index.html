@@ -119,7 +119,10 @@
     <div id="admin-view" class="hidden-view max-w-6xl mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold text-blue-800">ระบบจัดการออเดอร์ร้านค้า</h1>
-            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium" id="total-orders-badge">ออเดอร์ทั้งหมด: 0</span>
+            <div class="flex gap-2">
+                <button onclick="manualReset()" class="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 rounded-md text-sm font-medium transition-colors">🗑️ ล้างออเดอร์</button>
+                <span class="px-3 py-1.5 bg-blue-100 text-blue-800 rounded-md text-sm font-medium" id="total-orders-badge">ออเดอร์ทั้งหมด: 0</span>
+            </div>
         </div>
 
         <div class="bg-white p-5 rounded-xl shadow-sm border border-blue-100 mb-6">
@@ -178,9 +181,10 @@
         let savedQRBase64 = "";
         let db = null; 
 
-        // ================= FIREBASE SETUP =================
+        // ================= FIREBASE SETUP & DAILY RESET =================
         try {
-                  const firebaseConfig = {
+            // 👇 นำ Config ของคุณมาใส่ตรงนี้เหมือนเดิมนะครับ 👇
+                       const firebaseConfig = {
   apiKey: "AIzaSyCoFj3bDeODUDrZl7gTbaAR0MjaieMMqF8",
   authDomain: "order-system-115cb.firebaseapp.com",
   databaseURL: "https://order-system-115cb-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -191,15 +195,47 @@
   measurementId: "G-5XBQ0WSKJD"
 };
 
-
             if (firebaseConfig.apiKey) {
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.database();
+                checkDailyReset(); // ตรวจสอบการรีเซ็ตวันใหม่ทันทีเมื่อเปิดเว็บ
             } else {
                 console.warn("Offline Mode");
             }
         } catch (error) {
             console.error("Firebase Error:", error);
+        }
+
+        // ฟังก์ชันตรวจสอบและรีเซ็ตคิวรายวัน
+        function checkDailyReset() {
+            if (!db) return;
+            const todayDateString = new Date().toLocaleDateString('th-TH'); // ดึงวันที่ปัจจุบัน (เช่น 9/11/2569)
+            
+            db.ref('settings/lastActiveDate').once('value').then(snap => {
+                const lastDate = snap.val();
+                if (lastDate !== todayDateString) {
+                    // หากวันที่ในระบบไม่ตรงกับวันนี้ (แสดงว่าขึ้นวันใหม่) -> ให้ล้างออเดอร์
+                    db.ref('orders').remove();
+                    db.ref('settings/orderCount').set(0);
+                    db.ref('settings/lastActiveDate').set(todayDateString);
+                    console.log("รีเซ็ตระบบสำหรับวันใหม่เรียบร้อยแล้ว: " + todayDateString);
+                }
+            });
+        }
+
+        // ฟังก์ชันล้างออเดอร์ด้วยตัวเอง (ปุ่มกดหน้าแอดมิน)
+        function manualReset() {
+            if (confirm("คุณต้องการลบออเดอร์ทั้งหมดและเริ่มคิวที่ 1 ใหม่ใช่หรือไม่? (การกระทำนี้ย้อนกลับไม่ได้)")) {
+                if (db) {
+                    db.ref('orders').remove();
+                    db.ref('settings/orderCount').set(0);
+                    showToast('รีเซ็ตออเดอร์กลับไปเป็นคิวที่ 1 เรียบร้อยแล้ว');
+                } else {
+                    offlineOrders = [];
+                    showToast('รีเซ็ตสำเร็จ (Offline)');
+                    renderAdminOrders(offlineOrders);
+                }
+            }
         }
 
         // ================= UI FUNCTIONS =================
@@ -338,10 +374,9 @@
             const slipInput = document.getElementById('slip-upload');
             const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             
-            // ฟังก์ชันบันทึกข้อมูลหลัก
             const createOrder = (queueNum, slipBase64) => {
                 const orderData = {
-                    id: queueNum.toString(), // เป็นรันเลขคิว เช่น 1, 2, 3...
+                    id: queueNum.toString(), 
                     customerName: nameInput,
                     timestamp: new Date().getTime(),
                     timeString: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
@@ -362,7 +397,6 @@
                 }
             };
 
-            // ฟังก์ชันจัดการคิวผ่าน Transaction 
             const processQueueAndSlip = (slipBase64) => {
                 if (db) {
                     const countRef = db.ref('settings/orderCount');
@@ -372,7 +406,7 @@
                         if (error) {
                             showToast('เกิดข้อผิดพลาดในการรันคิว');
                         } else if (committed) {
-                            createOrder(snapshot.val(), slipBase64); // เอาเลขคิวใหม่ไปสร้างออเดอร์
+                            createOrder(snapshot.val(), slipBase64); 
                         }
                     });
                 } else {
@@ -393,7 +427,7 @@
             cart = [];
             renderCart();
             document.getElementById('slip-upload').value = '';
-            document.getElementById('customer-name').value = ''; // ล้างชื่อ
+            document.getElementById('customer-name').value = ''; 
             
             let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
             myOrders.push(orderData.id);
