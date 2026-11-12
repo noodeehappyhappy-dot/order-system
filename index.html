@@ -171,9 +171,11 @@
 
     <!-- JavaScript -->
     <script>
+        // เพิ่มเมนูคุกกี้ 2 ชิ้นลงไปในตัวแปร menuItems
         const menuItems = [
             { id: 'm1', name: 'ข้าวหน้าปลาดิบรวม', price: 39, image: '🍱', hasSauce: true },
-            { id: 'm2', name: 'คุกกี้', price: 20, image: '🍪', hasSauce: false }
+            { id: 'm2', name: 'คุกกี้', price: 20, image: '🍪', hasSauce: false },
+            { id: 'm3', name: 'คุกกี้แพ็คคู่ (2 ชิ้น)', price: 36, image: '🍪', hasSauce: false }
         ];
         const sauceOptions = ['โชยุเลมอน', 'Spicy มาโย', 'ซีฟู้ด'];
 
@@ -200,7 +202,7 @@
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.database();
                 checkDailyReset(); 
-                initRealtimeListeners(); // เรียกการเชื่อมต่อข้อมูล Real-time
+                initRealtimeListeners(); 
             } else {
                 console.warn("Offline Mode");
                 triggerOfflineUpdate();
@@ -209,7 +211,6 @@
             console.error("Firebase Error:", error);
         }
 
-        // ฟังการเปลี่ยนแปลงข้อมูลแบบเรียลไทม์ (ใช้งานร่วมกันทั้งแอดมินและลูกค้า)
         function initRealtimeListeners() {
             if (!db) return;
             
@@ -222,10 +223,9 @@
                 let orders = [];
                 if (data) { 
                     Object.keys(data).forEach(key => orders.push(data[key])); 
-                    orders.sort((a, b) => b.timestamp - a.timestamp); // เรียงคิวใหม่ล่าสุดขึ้นก่อน
+                    orders.sort((a, b) => b.timestamp - a.timestamp); 
                 }
                 
-                // อัปเดตหน้าจอทั้งสองฝั่งทันที
                 renderAdminOrders(orders);
                 renderCustomerOrders(orders);
             });
@@ -236,7 +236,6 @@
             renderCustomerOrders(offlineOrders);
         }
 
-        // ตรวจสอบและรีเซ็ตคิวรายวัน
         function checkDailyReset() {
             if (!db) return;
             const todayDateString = new Date().toLocaleDateString('th-TH'); 
@@ -250,7 +249,6 @@
             });
         }
 
-        // ล้างออเดอร์ด้วยตัวเอง (ปุ่มกดหน้าแอดมิน)
         function manualReset() {
             if (confirm("คุณต้องการลบออเดอร์ทั้งหมดและเริ่มคิวที่ 1 ใหม่ใช่หรือไม่? (การกระทำนี้ย้อนกลับไม่ได้)")) {
                 if (db) {
@@ -379,7 +377,7 @@
             totalEl.innerText = `฿${total}`;
         }
 
-        // ================= ORDER SUBMISSION (Sequential Queue) =================
+        // ================= ORDER SUBMISSION =================
         function fileToBase64(file, callback) {
             const reader = new FileReader(); reader.readAsDataURL(file);
             reader.onload = () => callback(reader.result);
@@ -402,7 +400,7 @@
                 const orderData = {
                     id: queueNum.toString(), 
                     customerName: nameInput,
-                    timestamp: new Date().getTime(), // ใช้ Timestamp แยกความแตกต่าง
+                    timestamp: new Date().getTime(), 
                     timeString: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
                     items: cart,
                     total: total,
@@ -453,14 +451,12 @@
             document.getElementById('slip-upload').value = '';
             document.getElementById('customer-name').value = ''; 
             
-            // บันทึก Timestamp ของออเดอร์ลงเครื่องลูกค้า
             let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
             myOrders.push(orderData.timestamp);
             localStorage.setItem('myOrders', JSON.stringify(myOrders));
             
             showToast(`สั่งอาหารสำเร็จ คิวของคุณคือ ${orderData.id}`);
             
-            // ถ้า Offline ให้สั่งอัปเดตหน้าจอเอง (ถ้า Online ตัว Realtime Listener จะจัดการให้)
             if (!db) { triggerOfflineUpdate(); }
         }
 
@@ -556,10 +552,8 @@
             let hasFound = false;
             let validItems = [];
 
-            // ตรวจสอบว่าออเดอร์ในเครื่องลูกค้า ยังมีอยู่จริงในฐานข้อมูลหรือไม่
             if (allOrdersList && allOrdersList.length > 0) {
                 allOrdersList.forEach(order => {
-                    // จับคู่ด้วย Timestamp ป้องกันคิวซ้ำเวลาเริ่มวันใหม่ หรือแอดมินกดรีเซ็ต
                     if (myLocalItems.includes(order.timestamp) || myLocalItems.includes(order.id)) {
                         hasFound = true;
                         validItems.push(order.timestamp); 
@@ -580,7 +574,6 @@
                 });
             }
             
-            // อัปเดตความจำเครื่องลูกค้าใหม่ (ทิ้งออเดอร์เก่าๆ ที่แอดมินลบไปแล้ว)
             localStorage.setItem('myOrders', JSON.stringify(validItems));
 
             if (!hasFound) { 
