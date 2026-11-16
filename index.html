@@ -16,9 +16,14 @@
         #toast { transition: opacity 0.3s, transform 0.3s; }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="text-gray-800 relative min-h-screen">
 
-    <!-- Navbar -->
+    <!-- Global Watermark Background Layer (แสดงโลโก้จางๆ อยู่ด้านหลังทั้ง 2 หน้า) -->
+    <div id="watermark-bg" class="fixed inset-0 pointer-events-none flex items-center justify-center z-0 overflow-hidden opacity-10">
+        <img id="watermark-img" src="" alt="Logo Watermark" class="max-w-xl w-3/4 object-contain hidden-view">
+    </div>
+
+    <!-- Navbar (ให้อยู่ชั้นบนสุด z-50) -->
     <nav class="bg-blue-600 text-white shadow-md sticky top-0 z-50">
         <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="text-xl font-bold flex items-center gap-2">
@@ -37,7 +42,7 @@
     </div>
 
     <!-- ================= CUSTOMER VIEW ================= -->
-    <div id="customer-view" class="max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-6">
+    <div id="customer-view" class="relative z-10 max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-6">
         
         <!-- Left: Menu -->
         <div class="flex-1">
@@ -104,7 +109,7 @@
     </div>
 
     <!-- ================= ADMIN LOGIN VIEW ================= -->
-    <div id="admin-login-view" class="hidden-view max-w-md mx-auto mt-20 px-4">
+    <div id="admin-login-view" class="hidden-view relative z-10 max-w-md mx-auto mt-20 px-4">
         <div class="bg-white p-8 rounded-xl shadow-sm border border-blue-100 text-center">
             <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4"><span class="text-2xl">🔒</span></div>
             <h2 class="text-2xl font-bold text-blue-800 mb-2">เข้าสู่ระบบร้านค้า</h2>
@@ -116,7 +121,7 @@
     </div>
 
     <!-- ================= ADMIN VIEW ================= -->
-    <div id="admin-view" class="hidden-view max-w-6xl mx-auto px-4 py-8">
+    <div id="admin-view" class="hidden-view relative z-10 max-w-6xl mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold text-blue-800">ระบบจัดการออเดอร์และสต็อกสินค้า</h1>
             <div class="flex gap-2">
@@ -140,6 +145,21 @@
                     <p class="text-2xl font-bold text-green-600" id="total-profit">฿0</p>
                 </div>
                 <div class="text-3xl bg-green-50 w-12 h-12 rounded-lg flex items-center justify-center">📊</div>
+            </div>
+        </div>
+
+        <!-- Logo Watermark Settings Box -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-blue-100 mb-6">
+            <h2 class="font-semibold text-gray-700 mb-4 flex items-center gap-2">🖼️ ตั้งค่าโลโก้ร้าน (ลายน้ำพื้นหลัง)</h2>
+            <div class="flex items-center gap-4">
+                <div class="w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-300 rounded flex items-center justify-center overflow-hidden">
+                    <img id="admin-logo-preview" src="" alt="Logo" class="w-full h-full object-cover hidden-view">
+                    <span id="admin-logo-placeholder" class="text-xs text-gray-400">ยังไม่มีรูปโลโก้</span>
+                </div>
+                <div>
+                    <input type="file" id="logo-upload-input" accept="image/*" class="text-sm mb-2 block file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <button onclick="saveLogo()" class="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">บันทึกโลโก้</button>
+                </div>
             </div>
         </div>
 
@@ -210,23 +230,23 @@
 
         let cart = [];
         let savedQRBase64 = "";
+        let savedLogoBase64 = "";
         let db = null; 
         let offlineOrders = [];
         let currentStock = { m1: 0, m4: 0, cookie: 0 }; 
 
-        // คำนวณกำไรต่อหน่วยตามต้นทุนที่กำหนด
         function calculateItemProfit(itemId, qty) {
             let unitProfit = 0;
             if (itemId === 'm1') unitProfit = 39 - 21.60;      // 17.40 บาท
             else if (itemId === 'm4') unitProfit = 49 - 38.06;  // 10.94 บาท
             else if (itemId === 'm2') unitProfit = 20 - 15.00;  // 5.00 บาท
-            else if (itemId === 'm3') unitProfit = 36 - 30.00;  // 6.00 บาท (ต้นทุนคู่ละ 30)
+            else if (itemId === 'm3') unitProfit = 36 - 30.00;  // 6.00 บาท
             return unitProfit * qty;
         }
 
         // ================= FIREBASE SETUP & INITIALIZATION =================
         try {
-                  const firebaseConfig = {
+             const firebaseConfig = {
   apiKey: "AIzaSyCoFj3bDeODUDrZl7gTbaAR0MjaieMMqF8",
   authDomain: "order-system-115cb.firebaseapp.com",
   databaseURL: "https://order-system-115cb-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -257,6 +277,10 @@
             
             db.ref('settings/qrCode').on('value', snap => { 
                 updateQRDisplay(snap.val()); 
+            });
+
+            db.ref('settings/logo').on('value', snap => {
+                updateLogoDisplay(snap.val());
             });
 
             db.ref('settings/stock').on('value', snap => {
@@ -664,19 +688,53 @@
             }
         }
 
+        // ฟังก์ชันบันทึกโลโก้ลายน้ำ
+        function saveLogo() {
+            const input = document.getElementById('logo-upload-input');
+            if (input.files.length === 0) return;
+            const file = input.files[0];
+            if (file.size > 1024 * 1024) { showToast('ไฟล์โลโก้ใหญ่เกินไป (จำกัด 1MB)'); return; }
+            fileToBase64(file, (base64) => {
+                if (db) {
+                    db.ref('settings/logo').set(base64).then(() => showToast('บันทึกโลโก้ลายน้ำสำเร็จ'));
+                } else {
+                    updateLogoDisplay(base64);
+                    showToast('บันทึกโลโก้สำเร็จ (Offline)');
+                }
+            });
+        }
+
+        function updateLogoDisplay(base64Data) {
+            savedLogoBase64 = base64Data;
+            const adminImg = document.getElementById('admin-logo-preview');
+            const adminPlaceholder = document.getElementById('admin-logo-placeholder');
+            const watermarkImg = document.getElementById('watermark-img');
+
+            if (base64Data) {
+                adminImg.src = base64Data;
+                adminImg.classList.remove('hidden-view');
+                adminPlaceholder.classList.add('hidden-view');
+
+                watermarkImg.src = base64Data;
+                watermarkImg.classList.remove('hidden-view');
+            } else {
+                adminImg.classList.add('hidden-view');
+                adminPlaceholder.classList.remove('hidden-view');
+                watermarkImg.classList.add('hidden-view');
+            }
+        }
+
         function renderAdminOrders(orders) {
             const tbody = document.getElementById('admin-order-list');
             if(!tbody) return;
             document.getElementById('total-orders-badge').innerText = `ออเดอร์ทั้งหมด: ${orders.length}`;
             
-            // คำนวณเงินที่ได้รับและกำไรสุทธิทั้งหมด (เฉพาะออเดอร์ที่รับยอดแล้ว)
             let totalRevenue = 0;
             let totalProfit = 0;
 
             orders.forEach(order => {
                 if (order.paymentStatus === 'ชำระแล้ว' || order.paymentStatus === 'รับยอดแล้ว') {
                     totalRevenue += (order.total || 0);
-                    // คำนวณกำไรย้อนหลังเผื่อออเดอร์เก่าไม่มีฟิลด์ profit
                     let p = order.profit;
                     if (p === undefined) {
                         p = 0;
