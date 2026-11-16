@@ -18,9 +18,9 @@
 </head>
 <body class="text-gray-800 relative min-h-screen">
 
-    <!-- Global Watermark Background Layer (แสดงโลโก้จางๆ อยู่ด้านหลังทั้ง 2 หน้า) -->
+    <!-- Global Watermark Background Layer (ขยายโลโก้ให้ใหญ่ขึ้น) -->
     <div id="watermark-bg" class="fixed inset-0 pointer-events-none flex items-center justify-center z-0 overflow-hidden opacity-10">
-        <img id="watermark-img" src="" alt="Logo Watermark" class="max-w-xl w-3/4 object-contain hidden-view">
+        <img id="watermark-img" src="" alt="Logo Watermark" class="w-11/12 sm:w-4/5 max-w-5xl object-contain hidden-view">
     </div>
 
     <!-- Navbar (ให้อยู่ชั้นบนสุด z-50) -->
@@ -256,7 +256,6 @@
   appId: "1:1003354788092:web:8d1e75b13862cb0a228779",
   measurementId: "G-5XBQ0WSKJD"
 };
-
 
             if (firebaseConfig.apiKey) {
                 firebase.initializeApp(firebaseConfig);
@@ -688,7 +687,6 @@
             }
         }
 
-        // ฟังก์ชันบันทึกโลโก้ลายน้ำ
         function saveLogo() {
             const input = document.getElementById('logo-upload-input');
             if (input.files.length === 0) return;
