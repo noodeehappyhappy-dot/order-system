@@ -125,6 +125,24 @@
             </div>
         </div>
 
+        <!-- Financial Summary Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-blue-100 flex justify-between items-center">
+                <div>
+                    <p class="text-xs text-gray-500 font-medium mb-1">💰 เงินที่ได้รับมา (รับยอดแล้ว)</p>
+                    <p class="text-2xl font-bold text-blue-600" id="total-revenue">฿0</p>
+                </div>
+                <div class="text-3xl bg-blue-50 w-12 h-12 rounded-lg flex items-center justify-center">💵</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-green-100 flex justify-between items-center">
+                <div>
+                    <p class="text-xs text-gray-500 font-medium mb-1">📈 กำไรสุทธิ (รับยอดแล้ว)</p>
+                    <p class="text-2xl font-bold text-green-600" id="total-profit">฿0</p>
+                </div>
+                <div class="text-3xl bg-green-50 w-12 h-12 rounded-lg flex items-center justify-center">📊</div>
+            </div>
+        </div>
+
         <!-- Stock Management Box -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-blue-100 mb-6">
             <h2 class="font-semibold text-gray-700 mb-4 flex items-center gap-2">📦 จัดการสต็อกสินค้า (ตั้งค่าเริ่มต้นตอนเปิดร้าน)</h2>
@@ -158,7 +176,7 @@
                             <th class="p-4 font-semibold w-1/5">คิว / ชื่อลูกค้า</th>
                             <th class="p-4 font-semibold">เวลา</th>
                             <th class="p-4 font-semibold w-1/3">รายการอาหาร</th>
-                            <th class="p-4 font-semibold">ยอดรวม</th>
+                            <th class="p-4 font-semibold">ยอดรวม / กำไร</th>
                             <th class="p-4 font-semibold text-center">การชำระเงิน</th>
                             <th class="p-4 font-semibold text-center">สถานะอาหาร</th>
                             <th class="p-4 font-semibold text-center">จัดการ</th>
@@ -182,7 +200,6 @@
 
     <!-- JavaScript -->
     <script>
-        // เพิ่มเมนูข้าวหน้าปลาดิบรวมไซซ์ใหญ่ (m4) เข้าไป
         const menuItems = [
             { id: 'm1', name: 'ข้าวหน้าปลาดิบรวม', price: 39, image: '🍱', hasSauce: true, stockKey: 'm1', stockNeeded: 1 },
             { id: 'm4', name: 'ข้าวหน้าปลาดิบรวม (ไซซ์ใหญ่)', price: 49, image: '🍱', hasSauce: true, stockKey: 'm4', stockNeeded: 1 },
@@ -197,9 +214,19 @@
         let offlineOrders = [];
         let currentStock = { m1: 0, m4: 0, cookie: 0 }; 
 
+        // คำนวณกำไรต่อหน่วยตามต้นทุนที่กำหนด
+        function calculateItemProfit(itemId, qty) {
+            let unitProfit = 0;
+            if (itemId === 'm1') unitProfit = 39 - 21.60;      // 17.40 บาท
+            else if (itemId === 'm4') unitProfit = 49 - 38.06;  // 10.94 บาท
+            else if (itemId === 'm2') unitProfit = 20 - 15.00;  // 5.00 บาท
+            else if (itemId === 'm3') unitProfit = 36 - 30.00;  // 6.00 บาท (ต้นทุนคู่ละ 30)
+            return unitProfit * qty;
+        }
+
         // ================= FIREBASE SETUP & INITIALIZATION =================
         try {
-            const firebaseConfig = {
+                  const firebaseConfig = {
   apiKey: "AIzaSyCoFj3bDeODUDrZl7gTbaAR0MjaieMMqF8",
   authDomain: "order-system-115cb.firebaseapp.com",
   databaseURL: "https://order-system-115cb-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -209,6 +236,7 @@
   appId: "1:1003354788092:web:8d1e75b13862cb0a228779",
   measurementId: "G-5XBQ0WSKJD"
 };
+
 
             if (firebaseConfig.apiKey) {
                 firebase.initializeApp(firebaseConfig);
@@ -567,6 +595,11 @@
         }
 
         function saveOrderData(queueNum, slipBase64, total, nameInput) {
+            let orderProfit = 0;
+            cart.forEach(item => {
+                orderProfit += calculateItemProfit(item.id, item.qty);
+            });
+
             const orderData = {
                 id: queueNum.toString(), 
                 customerName: nameInput,
@@ -574,6 +607,7 @@
                 timeString: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
                 items: cart,
                 total: total,
+                profit: orderProfit,
                 status: 'กำลังเตรียม',
                 paymentStatus: 'รอตรวจสอบ',
                 slipImage: slipBase64 || null
@@ -634,6 +668,27 @@
             const tbody = document.getElementById('admin-order-list');
             if(!tbody) return;
             document.getElementById('total-orders-badge').innerText = `ออเดอร์ทั้งหมด: ${orders.length}`;
+            
+            // คำนวณเงินที่ได้รับและกำไรสุทธิทั้งหมด (เฉพาะออเดอร์ที่รับยอดแล้ว)
+            let totalRevenue = 0;
+            let totalProfit = 0;
+
+            orders.forEach(order => {
+                if (order.paymentStatus === 'ชำระแล้ว' || order.paymentStatus === 'รับยอดแล้ว') {
+                    totalRevenue += (order.total || 0);
+                    // คำนวณกำไรย้อนหลังเผื่อออเดอร์เก่าไม่มีฟิลด์ profit
+                    let p = order.profit;
+                    if (p === undefined) {
+                        p = 0;
+                        order.items.forEach(i => { p += calculateItemProfit(i.id, i.qty); });
+                    }
+                    totalProfit += p;
+                }
+            });
+
+            document.getElementById('total-revenue').innerText = `฿${totalRevenue.toLocaleString()}`;
+            document.getElementById('total-profit').innerText = `฿${totalProfit.toFixed(2)}`;
+
             tbody.innerHTML = '';
             if (orders.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400">ยังไม่มีออเดอร์</td></tr>'; return; }
 
@@ -642,6 +697,12 @@
                     let s = i.sauce ? `<span class="text-blue-500">(ซอส: ${i.sauce})</span>` : '';
                     return `<div>${i.name} ${s} <span class="text-xs text-gray-500">x${i.qty}</span></div>`;
                 }).join('');
+
+                let orderProfit = order.profit;
+                if (orderProfit === undefined) {
+                    orderProfit = 0;
+                    order.items.forEach(i => { orderProfit += calculateItemProfit(i.id, i.qty); });
+                }
 
                 let paymentBadge = '';
                 if (order.paymentStatus === 'รอตรวจสอบ') {
@@ -660,7 +721,10 @@
                         </td>
                         <td class="p-4 text-gray-500">${order.timeString}</td>
                         <td class="p-4 leading-relaxed">${itemsList}</td>
-                        <td class="p-4 font-semibold text-blue-600">฿${order.total}</td>
+                        <td class="p-4">
+                            <div class="font-semibold text-blue-600">฿${order.total}</div>
+                            <div class="text-xs text-green-600 font-medium">กำไร: ฿${orderProfit.toFixed(2)}</div>
+                        </td>
                         <td class="p-4 text-center">${paymentBadge}</td>
                         <td class="p-4 text-center"><span class="px-2 py-1 ${order.status === 'กำลังเตรียม' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'} rounded-md text-xs">${order.status}</span></td>
                         <td class="p-4 text-center">${statusBtn}</td>
