@@ -227,7 +227,8 @@
             { id: 'm2', name: 'คุกกี้', price: 20, image: '🍪', hasSauce: false, stockKey: 'cookie', stockNeeded: 1 },
             { id: 'm3', name: 'คุกกี้แพ็คคู่ (2 ชิ้น)', price: 36, image: '🍪', hasSauce: false, stockKey: 'cookie', stockNeeded: 2 }
         ];
-        const sauceOptions = ['โชยุเลมอน', 'Spicy มาโย', 'ซีฟู้ด'];
+        // ปรับให้ตัวเลือกซอสเหลือแค่ "โชยุเลมอน" เท่านั้น
+        const sauceOptions = ['โชยุเลมอน'];
 
         let cart = [];
         let savedQRBase64 = "";
@@ -246,7 +247,8 @@
         }
 
         // ================= FIREBASE SETUP & INITIALIZATION =================
-        try {            const firebaseConfig = {
+        try {
+                     const firebaseConfig = {
   apiKey: "AIzaSyCoFj3bDeODUDrZl7gTbaAR0MjaieMMqF8",
   authDomain: "order-system-115cb.firebaseapp.com",
   databaseURL: "https://order-system-115cb-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -412,7 +414,6 @@
             }
         }
 
-        // ฟังก์ชันตรวจสอบสถานะล็อกอินตอนกดปุ่มหลังร้านบน Navbar
         function checkAdminAccess() {
             if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
                 switchView('admin');
@@ -424,7 +425,7 @@
         function loginAdmin() {
             const pwd = document.getElementById('admin-password').value;
             if (pwd === '001') { 
-                sessionStorage.setItem('isAdminLoggedIn', 'true'); // บันทึกสถานะล็อกอินไว้ในเซสชัน
+                sessionStorage.setItem('isAdminLoggedIn', 'true');
                 switchView('admin'); 
                 showToast('เข้าสู่ระบบสำเร็จ'); 
             } 
@@ -433,9 +434,8 @@
             }
         }
 
-        // ฟังก์ชันออกจากระบบ
         function logoutAdmin() {
-            sessionStorage.removeItem('isAdminLoggedIn'); // ลบสถานะล็อกอิน
+            sessionStorage.removeItem('isAdminLoggedIn');
             switchView('admin-login');
             showToast('ออกจากระบบแล้ว');
         }
@@ -452,8 +452,8 @@
 
                 let sauceHTML = '';
                 if (item.hasSauce && !isSoldOut) {
-                    let options = sauceOptions.map(s => `<option value="${s}">${s}</option>`).join('');
-                    sauceHTML = `<select id="sauce-${item.id}" class="mt-2 w-full text-xs border rounded p-1 text-gray-600 focus:outline-none"><option value="" disabled selected>เลือกซอส</option>${options}</select>`;
+                    let options = sauceOptions.map(s => `<option value="${s}" selected>${s}</option>`).join('');
+                    sauceHTML = `<select id="sauce-${item.id}" class="mt-2 w-full text-xs border rounded p-1 text-gray-600 focus:outline-none">${options}</select>`;
                 }
 
                 let btnHTML = '';
@@ -506,8 +506,7 @@
             let selectedSauce = null;
             if (item.hasSauce) {
                 const sauceSelect = document.getElementById(`sauce-${itemId}`);
-                if (!sauceSelect.value) { showToast('กรุณาเลือกซอสก่อนสั่งครับ'); return; }
-                selectedSauce = sauceSelect.value;
+                selectedSauce = sauceSelect ? sauceSelect.value : 'โชยุเลมอน';
             }
             
             const existingItem = cart.find(c => c.id === itemId && c.sauce === selectedSauce);
