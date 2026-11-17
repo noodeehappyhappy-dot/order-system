@@ -31,7 +31,7 @@
             </div>
             <div class="flex gap-2 text-sm">
                 <button onclick="switchView('customer')" id="btn-nav-customer" class="px-3 py-1.5 bg-blue-700 rounded-md font-medium">หน้าร้าน (ลูกค้า)</button>
-                <button onclick="switchView('admin-login')" id="btn-nav-admin" class="px-3 py-1.5 hover:bg-blue-700 rounded-md">จัดการออเดอร์ (ร้านค้า)</button>
+                <button onclick="checkAdminAccess()" id="btn-nav-admin" class="px-3 py-1.5 hover:bg-blue-700 rounded-md">จัดการออเดอร์ (ร้านค้า)</button>
             </div>
         </div>
     </nav>
@@ -124,7 +124,8 @@
     <div id="admin-view" class="hidden-view relative z-10 max-w-6xl mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold text-blue-800">ระบบจัดการออเดอร์และสต็อกสินค้า</h1>
-            <div class="flex gap-2">
+            <div class="flex gap-2 items-center">
+                <button onclick="logoutAdmin()" class="px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors">🚪 ออกจากระบบ</button>
                 <button onclick="manualReset()" class="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 rounded-md text-sm font-medium transition-colors">🗑️ ล้างออเดอร์</button>
                 <span class="px-3 py-1.5 bg-blue-100 text-blue-800 rounded-md text-sm font-medium" id="total-orders-badge">ออเดอร์ทั้งหมด: 0</span>
             </div>
@@ -245,8 +246,7 @@
         }
 
         // ================= FIREBASE SETUP & INITIALIZATION =================
-        try {
-            const firebaseConfig = {
+        try {            const firebaseConfig = {
   apiKey: "AIzaSyCoFj3bDeODUDrZl7gTbaAR0MjaieMMqF8",
   authDomain: "order-system-115cb.firebaseapp.com",
   databaseURL: "https://order-system-115cb-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -412,10 +412,32 @@
             }
         }
 
+        // ฟังก์ชันตรวจสอบสถานะล็อกอินตอนกดปุ่มหลังร้านบน Navbar
+        function checkAdminAccess() {
+            if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
+                switchView('admin');
+            } else {
+                switchView('admin-login');
+            }
+        }
+
         function loginAdmin() {
             const pwd = document.getElementById('admin-password').value;
-            if (pwd === '001') { switchView('admin'); showToast('เข้าสู่ระบบสำเร็จ'); } 
-            else { showToast('รหัสผ่านไม่ถูกต้อง'); }
+            if (pwd === '001') { 
+                sessionStorage.setItem('isAdminLoggedIn', 'true'); // บันทึกสถานะล็อกอินไว้ในเซสชัน
+                switchView('admin'); 
+                showToast('เข้าสู่ระบบสำเร็จ'); 
+            } 
+            else { 
+                showToast('รหัสผ่านไม่ถูกต้อง'); 
+            }
+        }
+
+        // ฟังก์ชันออกจากระบบ
+        function logoutAdmin() {
+            sessionStorage.removeItem('isAdminLoggedIn'); // ลบสถานะล็อกอิน
+            switchView('admin-login');
+            showToast('ออกจากระบบแล้ว');
         }
 
         // ================= RENDER MENU & CART =================
@@ -768,7 +790,6 @@
                 if (order.slipImage) { paymentBadge += `<br><button onclick="viewSlip('${order.id}')" class="text-xs text-blue-500 underline mt-1">ดูสลิปที่แนบ</button>`; } 
                 else if (order.paymentStatus === 'รอตรวจสอบ') { paymentBadge += `<div class="text-[10px] text-gray-400 mt-1">ไม่มีสลิปแนบ</div>`; }
 
-                // เช็คว่ายืนยันยอดเงินหรือยัง (ต้องชำระแล้วถึงจะกดเสิร์ฟได้)
                 let isPaid = (order.paymentStatus === 'ชำระแล้ว' || order.paymentStatus === 'รับยอดแล้ว');
                 let statusBtn = '';
                 if (order.status === 'กำลังเตรียม') {
