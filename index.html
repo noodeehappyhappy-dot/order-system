@@ -18,12 +18,12 @@
 </head>
 <body class="text-gray-800 relative min-h-screen">
 
-    <!-- Global Watermark Background Layer (ขยายโลโก้ให้ใหญ่ขึ้น) -->
+    <!-- Global Watermark Background Layer -->
     <div id="watermark-bg" class="fixed inset-0 pointer-events-none flex items-center justify-center z-0 overflow-hidden opacity-10">
         <img id="watermark-img" src="" alt="Logo Watermark" class="w-11/12 sm:w-4/5 max-w-5xl object-contain hidden-view">
     </div>
 
-    <!-- Navbar (ให้อยู่ชั้นบนสุด z-50) -->
+    <!-- Navbar -->
     <nav class="bg-blue-600 text-white shadow-md sticky top-0 z-50">
         <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="text-xl font-bold flex items-center gap-2">
@@ -246,7 +246,7 @@
 
         // ================= FIREBASE SETUP & INITIALIZATION =================
         try {
-             const firebaseConfig = {
+            const firebaseConfig = {
   apiKey: "AIzaSyCoFj3bDeODUDrZl7gTbaAR0MjaieMMqF8",
   authDomain: "order-system-115cb.firebaseapp.com",
   databaseURL: "https://order-system-115cb-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -256,6 +256,7 @@
   appId: "1:1003354788092:web:8d1e75b13862cb0a228779",
   measurementId: "G-5XBQ0WSKJD"
 };
+
 
             if (firebaseConfig.apiKey) {
                 firebase.initializeApp(firebaseConfig);
@@ -717,7 +718,7 @@
                 watermarkImg.classList.remove('hidden-view');
             } else {
                 adminImg.classList.add('hidden-view');
-                adminPlaceholder.classList.remove('hidden-view');
+                adminPlaceholder.classList.add('hidden-view');
                 watermarkImg.classList.add('hidden-view');
             }
         }
@@ -767,7 +768,18 @@
                 if (order.slipImage) { paymentBadge += `<br><button onclick="viewSlip('${order.id}')" class="text-xs text-blue-500 underline mt-1">ดูสลิปที่แนบ</button>`; } 
                 else if (order.paymentStatus === 'รอตรวจสอบ') { paymentBadge += `<div class="text-[10px] text-gray-400 mt-1">ไม่มีสลิปแนบ</div>`; }
 
-                let statusBtn = order.status === 'กำลังเตรียม' ? `<button onclick="updateStatus('${order.id}', 'เสร็จแล้ว')" class="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">ทำเสร็จแล้ว</button>` : `<span class="text-green-600 text-xs font-bold">✓ เสิร์ฟแล้ว</span>`;
+                // เช็คว่ายืนยันยอดเงินหรือยัง (ต้องชำระแล้วถึงจะกดเสิร์ฟได้)
+                let isPaid = (order.paymentStatus === 'ชำระแล้ว' || order.paymentStatus === 'รับยอดแล้ว');
+                let statusBtn = '';
+                if (order.status === 'กำลังเตรียม') {
+                    if (isPaid) {
+                        statusBtn = `<button onclick="updateStatus('${order.id}', 'เสร็จแล้ว')" class="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">ทำเสร็จแล้ว</button>`;
+                    } else {
+                        statusBtn = `<button disabled class="px-3 py-1 bg-gray-300 text-gray-400 text-xs rounded cursor-not-allowed">ทำเสร็จแล้ว</button><div class="text-[10px] text-red-500 mt-1 font-medium">⚠️ ต้องยืนยันยอดก่อน</div>`;
+                    }
+                } else {
+                    statusBtn = `<span class="text-green-600 text-xs font-bold">✓ เสิร์ฟแล้ว</span>`;
+                }
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-50">
