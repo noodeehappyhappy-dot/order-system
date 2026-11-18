@@ -223,11 +223,10 @@
     <script>
         const menuItems = [
             { id: 'm1', name: 'ข้าวหน้าปลาดิบรวม', price: 39, image: '🍱', hasSauce: true, stockKey: 'm1', stockNeeded: 1 },
-            { id: 'm4', name: 'ข้าวหน้าปลาดิบรวม (ไซซ์ใหญ่)', price: 49, image: '🍱', hasSauce: true, stockKey: 'm4', stockNeeded: 1 },
+            { id: 'm4', name: 'ข้าวหน้าปลาดิบรวม (ไซซ์ใหญ่)', price: 69, image: '🍱', hasSauce: true, stockKey: 'm4', stockNeeded: 1 },
             { id: 'm2', name: 'คุกกี้', price: 20, image: '🍪', hasSauce: false, stockKey: 'cookie', stockNeeded: 1 },
             { id: 'm3', name: 'คุกกี้แพ็คคู่ (2 ชิ้น)', price: 36, image: '🍪', hasSauce: false, stockKey: 'cookie', stockNeeded: 2 }
         ];
-        // ปรับให้ตัวเลือกซอสเหลือแค่ "โชยุเลมอน" เท่านั้น
         const sauceOptions = ['โชยุเลมอน'];
 
         let cart = [];
@@ -237,10 +236,11 @@
         let offlineOrders = [];
         let currentStock = { m1: 0, m4: 0, cookie: 0 }; 
 
+        // คำนวณกำไรตามราคาและต้นทุนใหม่
         function calculateItemProfit(itemId, qty) {
             let unitProfit = 0;
-            if (itemId === 'm1') unitProfit = 39 - 21.60;      // 17.40 บาท
-            else if (itemId === 'm4') unitProfit = 49 - 38.06;  // 10.94 บาท
+            if (itemId === 'm1') unitProfit = 39 - 20.62;      // 18.38 บาท
+            else if (itemId === 'm4') unitProfit = 69 - 36.10;  // 32.90 บาท
             else if (itemId === 'm2') unitProfit = 20 - 15.00;  // 5.00 บาท
             else if (itemId === 'm3') unitProfit = 36 - 30.00;  // 6.00 บาท
             return unitProfit * qty;
@@ -248,7 +248,7 @@
 
         // ================= FIREBASE SETUP & INITIALIZATION =================
         try {
-                     const firebaseConfig = {
+           const firebaseConfig = {
   apiKey: "AIzaSyCoFj3bDeODUDrZl7gTbaAR0MjaieMMqF8",
   authDomain: "order-system-115cb.firebaseapp.com",
   databaseURL: "https://order-system-115cb-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -258,7 +258,6 @@
   appId: "1:1003354788092:web:8d1e75b13862cb0a228779",
   measurementId: "G-5XBQ0WSKJD"
 };
-
 
             if (firebaseConfig.apiKey) {
                 firebase.initializeApp(firebaseConfig);
